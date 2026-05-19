@@ -4,7 +4,7 @@
 
 This project is a multi-tenant enterprise AI platform that exposes a RAG API for companies to query their internal documents without managing AI infrastructure.
 
-The MVP must prioritize:
+The product must prioritize:
 - API-first design
 - multi-tenant isolation
 - clean architecture
@@ -13,6 +13,8 @@ The MVP must prioritize:
 - responses with sources
 - token usage visibility
 - testable and maintainable code
+
+The initial deliverable is not a throwaway prototype. All implemented features should follow the same architecture, security and maintainability standards expected from the final product.
 
 ---
 
@@ -47,7 +49,7 @@ Preferred modules:
 - usage
 - health
 
-The usage module must track and expose token consumption for MVP visibility.
+The usage module must track and expose token consumption for product visibility.
 
 Do not mix business logic inside controllers.
 
@@ -95,7 +97,7 @@ If no relevant context is found, the assistant must say that the available docum
 
 ## Usage and token tracking rules
 
-The MVP must include basic token usage visibility.
+The product must include basic token usage visibility from the initial deliverable.
 
 For each `/ask` request, store and return usage metadata when available:
 - input tokens
@@ -139,7 +141,7 @@ Usage visibility should support:
 - per tenant usage
 - future monthly limits
 
-Do not block the MVP if a provider does not return exact usage data. In that case, store `null` for unavailable values and keep the response shape consistent.
+Do not block the initial deliverable if a provider does not return exact usage data. In that case, store `null` for unavailable values and keep the response shape consistent.
 
 
 ## Testing rules
@@ -203,6 +205,35 @@ Do not log API keys, prompts with sensitive data, or full document contents.
 
 ---
 
+## Vulnerability analysis
+
+The product should include basic vulnerability analysis as part of development and CI from the initial deliverable.
+
+Use automated checks for:
+- dependency vulnerabilities with `npm audit` or an equivalent tool
+- secret detection before commits and in CI
+- static analysis and security-focused lint rules where practical
+- Docker image vulnerability scanning when container images are introduced
+- API security review based on OWASP API Security Top 10
+
+Security-sensitive flows must include tests for:
+- tenant isolation
+- API key authentication and authorization failures
+- unauthorized cross-tenant access attempts
+- file upload validation
+- prompt, source and document data leakage prevention
+
+Vulnerability findings should be documented with:
+- severity
+- affected component
+- reproduction or evidence
+- recommended fix
+- status
+
+Do not block the initial deliverable on advanced enterprise security tooling, but keep the project ready to add stronger checks in CI/CD.
+
+---
+
 ## Database rules
 
 Use Prisma migrations.
@@ -241,7 +272,7 @@ Keep documentation useful for the TFM evaluator.
 
 ---
 
-## MVP scope
+## Initial deliverable scope
 
 Do implement:
 - tenant creation
