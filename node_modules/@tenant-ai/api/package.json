@@ -1,0 +1,10 @@
+{
+  "name": "@tenant-ai/api",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "lint": "echo \"api lint pending\"",
+    "test": "echo \"api tests pending\"",
+    "build": "echo \"api build pending\""
+  }
+}

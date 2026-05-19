@@ -1,0 +1,37 @@
+{
+  "name": "tfm_multitenant_rag",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Multi-tenant enterprise AI platform that exposes a RAG API for companies to query internal documents without managing AI infrastructure.",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Janeitor/tenant-ai-platform.git"
+  },
+  "keywords": [
+    "rag",
+    "multitenant",
+    "nestjs",
+    "nextjs",
+    "prisma",
+    "pgvector"
+  ],
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Janeitor/tenant-ai-platform/issues"
+  },
+  "homepage": "https://github.com/Janeitor/tenant-ai-platform#readme",
+  "engines": {
+    "node": ">=22 <23",
+    "npm": ">=10"
+  }
+}

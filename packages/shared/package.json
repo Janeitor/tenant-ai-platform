@@ -1,0 +1,10 @@
+{
+  "name": "@tenant-ai/shared",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "lint": "echo \"shared lint pending\"",
+    "test": "echo \"shared tests pending\"",
+    "build": "echo \"shared build pending\""
+  }
+}
