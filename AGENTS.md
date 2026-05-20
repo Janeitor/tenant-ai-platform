@@ -18,6 +18,21 @@ The initial deliverable is not a throwaway prototype. All implemented features s
 
 ---
 
+## Collaboration and learning mode
+
+The developer is learning the stack while building the project.
+
+Before implementing a new feature or module:
+- Explain the mental model and request flow first.
+- Describe which files will be created or modified and why.
+- Implement the change step by step.
+- After implementation, provide a short recap explaining how the new pieces interact.
+- Encourage questions before moving to the next feature.
+
+Avoid unexplained "vibecoding". The project should progress in a way that leaves the developer able to understand, maintain and explain the code.
+
+---
+
 ## Tech stack
 
 - Backend: NestJS + TypeScript
