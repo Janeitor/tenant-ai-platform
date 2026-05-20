@@ -3,8 +3,36 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "lint": "echo \"api lint pending\"",
-    "test": "echo \"api tests pending\"",
-    "build": "echo \"api build pending\""
+    "start": "nest start",
+    "start:dev": "nest start --watch",
+    "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
+    "test": "jest --config jest.config.ts",
+    "test:e2e": "jest --config jest.config.ts --testRegex \".e2e-spec.ts$\"",
+    "build": "nest build"
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.0.0",
+    "@nestjs/core": "^11.0.0",
+    "@nestjs/platform-express": "^11.0.0",
+    "reflect-metadata": "^0.2.0",
+    "rxjs": "^7.8.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.4",
+    "@nestjs/cli": "^11.0.0",
+    "@nestjs/testing": "^11.0.0",
+    "@types/express": "^5.0.0",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^24.0.0",
+    "@types/supertest": "^6.0.0",
+    "eslint": "^9.0.0",
+    "jest": "^30.0.0",
+    "prettier": "^3.0.0",
+    "supertest": "^7.0.0",
+    "ts-jest": "^29.0.0",
+    "ts-node": "^10.9.0",
+    "tsconfig-paths": "^4.0.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.59.4"
   }
 }
