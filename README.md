@@ -58,7 +58,61 @@ packages/
 
 ## Local Setup
 
-Pending implementation.
+Install dependencies:
+
+```bash
+npm install
+```
+
+Run project checks:
+
+```bash
+npm run lint
+npm run test
+npm run build
+```
+
+## Local Infrastructure
+
+The project uses Docker Compose for local infrastructure services:
+
+- PostgreSQL with pgvector on port `5432`
+- Redis on port `6379`
+- MinIO S3-compatible storage on ports `9000` and `9001`
+
+Start services:
+
+```bash
+docker compose up -d
+```
+
+Check service status:
+
+```bash
+docker compose ps
+```
+
+Stop services:
+
+```bash
+docker compose down
+```
+
+MinIO console:
+
+```txt
+http://localhost:9001
+user: minioadmin
+password: minioadmin
+```
+
+Default local service URLs:
+
+```env
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/tenant_ai?schema=public
+REDIS_URL=redis://localhost:6379
+S3_ENDPOINT=http://localhost:9000
+```
 
 ## Documentation Status
 
