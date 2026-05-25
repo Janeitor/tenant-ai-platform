@@ -2,6 +2,12 @@
   "name": "@tenant-ai/api",
   "version": "0.1.0",
   "private": true,
+  "imports": {
+    "#prisma-client": {
+      "types": "./generated/prisma/client.d.ts",
+      "default": "./generated/prisma/client.js"
+    }
+  },
   "scripts": {
     "start": "nest start",
     "start:dev": "nest start --watch",
