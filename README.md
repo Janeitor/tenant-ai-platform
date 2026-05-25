@@ -64,6 +64,18 @@ Install dependencies:
 npm install
 ```
 
+Create a local environment file from the example:
+
+```bash
+cp .env.example .env
+```
+
+On Windows PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+```
+
 Run project checks:
 
 ```bash
@@ -113,6 +125,48 @@ DATABASE_URL=postgresql://postgres:postgres@localhost:5432/tenant_ai?schema=publ
 REDIS_URL=redis://localhost:6379
 S3_ENDPOINT=http://localhost:9000
 ```
+
+## Database And Prisma
+
+The API uses Prisma ORM with PostgreSQL. This project currently uses Prisma 7, which keeps the database URL in `apps/api/prisma.config.ts` instead of inside `schema.prisma`.
+
+Important files:
+
+```txt
+apps/api/prisma/schema.prisma
+apps/api/prisma.config.ts
+apps/api/prisma/migrations/
+apps/api/src/prisma/prisma.module.ts
+apps/api/src/prisma/prisma.service.ts
+```
+
+Apply local migrations:
+
+```bash
+npm run prisma:migrate --workspace @tenant-ai/api -- --name init
+```
+
+Generate the Prisma client:
+
+```bash
+npm run prisma:generate --workspace @tenant-ai/api
+```
+
+Open Prisma Studio:
+
+```bash
+npm run prisma:studio --workspace @tenant-ai/api
+```
+
+Prisma client output is generated in `apps/api/generated/prisma` and is intentionally ignored by Git. It can be regenerated from `schema.prisma`.
+
+Current initial model:
+
+```txt
+Tenant
+```
+
+The `tenants` table is the base entity for multi-tenant isolation. Future business entities such as API keys, documents, chunks, conversations and usage logs must include `tenantId`.
 
 ## Documentation Status
 
