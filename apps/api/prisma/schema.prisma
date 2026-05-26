@@ -14,5 +14,22 @@ model Tenant {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  apiKeys ApiKey[]
+
   @@map("tenants")
+}
+
+model ApiKey {
+  id        String    @id @default(cuid())
+  tenantId  String
+  name      String
+  keyHash   String    @unique
+  keyPrefix String
+  createdAt DateTime  @default(now())
+  revokedAt DateTime?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("api_keys")
 }
