@@ -6,6 +6,7 @@ import { HealthModule } from './health/health.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { TenantsModule } from './tenants/tenants.module';
 import { ApiKeysModule } from './api-keys/api-keys.module';
+import { AuthModule } from './auth/auth.module';
 
 const rootEnvPath = path.resolve(process.cwd(), '../../.env');
 const rootLocalEnvPath = path.resolve(process.cwd(), '../../.env.local');
@@ -20,6 +21,7 @@ const rootLocalEnvPath = path.resolve(process.cwd(), '../../.env.local');
     HealthModule,
     TenantsModule,
     ApiKeysModule,
+    AuthModule,
   ],
 })
 export class AppModule {}

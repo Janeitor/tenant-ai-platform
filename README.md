@@ -124,6 +124,7 @@ Default local service URLs:
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/tenant_ai?schema=public
 REDIS_URL=redis://localhost:6379
 S3_ENDPOINT=http://localhost:9000
+API_KEY_PEPPER=change-me-in-local-env
 ```
 
 ## Database And Prisma
@@ -160,13 +161,45 @@ npm run prisma:studio --workspace @tenant-ai/api
 
 Prisma client output is generated in `apps/api/generated/prisma` and is intentionally ignored by Git. It can be regenerated from `schema.prisma`.
 
-Current initial model:
+Current initial models:
 
 ```txt
 Tenant
+ApiKey
 ```
 
 The `tenants` table is the base entity for multi-tenant isolation. Future business entities such as API keys, documents, chunks, conversations and usage logs must include `tenantId`.
+
+## API Key Authentication
+
+API keys are tenant-scoped credentials used to authenticate future business endpoints such as document upload, retrieval, chat and usage visibility.
+
+Create an API key for a tenant:
+
+```txt
+POST /api/tenants/:tenantId/api-keys
+```
+
+List API keys for a tenant:
+
+```txt
+GET /api/tenants/:tenantId/api-keys
+```
+
+The raw API key is returned only once during creation. The database stores:
+
+- `keyHash`: HMAC-SHA256 hash using `API_KEY_PEPPER`
+- `keyPrefix`: short visible prefix for identification
+- `tenantId`: owner tenant
+- `revokedAt`: nullable revocation timestamp
+
+Protected endpoints will receive API keys through this header:
+
+```txt
+x-api-key: tai_...
+```
+
+`ApiKeyAuthGuard` validates the header, resolves the owning tenant and attaches authenticated API key metadata to the request. Business endpoints must use the tenant resolved from the API key instead of trusting `tenantId` from request bodies.
 
 ## Documentation Status
 
