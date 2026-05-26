@@ -15,6 +15,7 @@ model Tenant {
   updatedAt DateTime @updatedAt
 
   apiKeys ApiKey[]
+  documents Document[]
 
   @@map("tenants")
 }
@@ -32,4 +33,21 @@ model ApiKey {
 
   @@index([tenantId])
   @@map("api_keys")
+}
+
+model Document {
+  id         String   @id @default(cuid())
+  tenantId   String
+  name       String
+  mimeType   String
+  sizeBytes  Int
+  status     String   @default("pending")
+  storageKey String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("documents")
 }

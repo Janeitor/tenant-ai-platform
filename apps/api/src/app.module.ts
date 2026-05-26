@@ -7,6 +7,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { TenantsModule } from './tenants/tenants.module';
 import { ApiKeysModule } from './api-keys/api-keys.module';
 import { AuthModule } from './auth/auth.module';
+import { DocumentsModule } from './documents/documents.module';
 
 const rootEnvPath = path.resolve(process.cwd(), '../../.env');
 const rootLocalEnvPath = path.resolve(process.cwd(), '../../.env.local');
@@ -22,6 +23,7 @@ const rootLocalEnvPath = path.resolve(process.cwd(), '../../.env.local');
     TenantsModule,
     ApiKeysModule,
     AuthModule,
+    DocumentsModule,
   ],
 })
 export class AppModule {}
