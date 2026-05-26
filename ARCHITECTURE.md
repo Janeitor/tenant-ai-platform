@@ -17,19 +17,19 @@ The system allows companies to:
 
 ```text
 Client
-  ↓
+  |
 API Gateway
-  ↓
+  |
 Auth/API Key
-  ↓
+  |
 Tenant Resolver
-  ↓
+  |
 Retrieval Service
-  ↓
+  |
 PostgreSQL + pgvector
-  ↓
+  |
 LLM Provider
-  ↓
+  |
 Response with sources
 ```
 
@@ -110,6 +110,10 @@ Development:
 
 Production:
 - Cloudflare R2 or AWS S3
+
+Storage access must be isolated behind providers/adapters so business logic does not depend directly on MinIO. MinIO is the local S3-compatible implementation, not the domain abstraction.
+
+Azure Blob Storage remains a possible future production target, but it should be introduced through a separate adapter because it does not use the S3 API natively.
 
 ---
 

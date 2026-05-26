@@ -127,6 +127,20 @@ S3_ENDPOINT=http://localhost:9000
 API_KEY_PEPPER=change-me-in-local-env
 ```
 
+## Storage Decision
+
+Local document storage uses MinIO because it provides an S3-compatible API for development. The application should keep storage access behind a provider/adapter boundary instead of coupling business logic directly to MinIO.
+
+Planned storage direction:
+
+```txt
+Local development: MinIO
+Primary cloud-compatible path: S3-compatible storage such as AWS S3 or Cloudflare R2
+Future Azure option: Azure Blob Storage through a separate adapter if deployment requirements change
+```
+
+Storage-related services should use neutral names such as `StorageService`, `ObjectStorageService` or `S3StorageAdapter`, not domain logic tied directly to MinIO.
+
 ## Database And Prisma
 
 The API uses Prisma ORM with PostgreSQL. This project currently uses Prisma 7, which keeps the database URL in `apps/api/prisma.config.ts` instead of inside `schema.prisma`.
