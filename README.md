@@ -141,6 +141,19 @@ Future Azure option: Azure Blob Storage through a separate adapter if deployment
 
 Storage-related services should use neutral names such as `StorageService`, `ObjectStorageService` or `S3StorageAdapter`, not domain logic tied directly to MinIO.
 
+Implemented storage abstraction:
+
+```txt
+apps/api/src/storage/object-storage.types.ts
+apps/api/src/storage/object-storage.service.ts
+apps/api/src/storage/s3-storage.adapter.ts
+apps/api/src/storage/storage.module.ts
+```
+
+The API uses `@aws-sdk/client-s3` to communicate with S3-compatible storage. In local development, this points to MinIO through the `S3_*` environment variables.
+
+Application services should depend on the `OBJECT_STORAGE` provider token and the `ObjectStoragePort` contract instead of depending directly on `S3StorageAdapter`.
+
 ## Database And Prisma
 
 The API uses Prisma ORM with PostgreSQL. This project currently uses Prisma 7, which keeps the database URL in `apps/api/prisma.config.ts` instead of inside `schema.prisma`.

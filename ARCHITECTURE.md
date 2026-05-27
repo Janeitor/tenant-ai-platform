@@ -115,6 +115,22 @@ Storage access must be isolated behind providers/adapters so business logic does
 
 Azure Blob Storage remains a possible future production target, but it should be introduced through a separate adapter because it does not use the S3 API natively.
 
+Current implementation:
+
+```txt
+StorageModule
+  |
+OBJECT_STORAGE provider token
+  |
+ObjectStoragePort contract
+  |
+S3StorageAdapter
+  |
+S3-compatible storage (MinIO locally)
+```
+
+The S3 adapter uses `@aws-sdk/client-s3`. Domain services should depend on the storage contract and provider token, not directly on MinIO or a cloud-specific SDK.
+
 ---
 
 ## Queue system

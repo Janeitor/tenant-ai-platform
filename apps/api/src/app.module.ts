@@ -8,6 +8,7 @@ import { TenantsModule } from './tenants/tenants.module';
 import { ApiKeysModule } from './api-keys/api-keys.module';
 import { AuthModule } from './auth/auth.module';
 import { DocumentsModule } from './documents/documents.module';
+import { StorageModule } from './storage/storage.module';
 
 const rootEnvPath = path.resolve(process.cwd(), '../../.env');
 const rootLocalEnvPath = path.resolve(process.cwd(), '../../.env.local');
@@ -24,6 +25,7 @@ const rootLocalEnvPath = path.resolve(process.cwd(), '../../.env.local');
     ApiKeysModule,
     AuthModule,
     DocumentsModule,
+    StorageModule,
   ],
 })
 export class AppModule {}
