@@ -4,13 +4,13 @@ import { IngestionService } from './ingestion.service';
 
 describe('IngestionService', () => {
   const prisma = {
+    $executeRaw: jest.fn(),
     document: {
       findFirst: jest.fn(),
       update: jest.fn(),
     },
     documentChunk: {
       deleteMany: jest.fn(),
-      createMany: jest.fn(),
     },
   };
 
@@ -19,14 +19,24 @@ describe('IngestionService', () => {
     putObject: jest.fn(),
   };
 
+  const embeddingsService = {
+    generateEmbedding: jest.fn(),
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
     prisma.document.update.mockResolvedValue({});
     prisma.documentChunk.deleteMany.mockResolvedValue({ count: 0 });
-    prisma.documentChunk.createMany.mockResolvedValue({ count: 1 });
+    prisma.$executeRaw.mockResolvedValue(1);
+    embeddingsService.generateEmbedding.mockResolvedValue({
+      embedding: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8],
+      dimensions: 8,
+      provider: 'local',
+      model: 'local-deterministic-8',
+    });
   });
 
-  it('ingests a text document into chunks for the authenticated tenant', async () => {
+  it('ingests a text document into embedded chunks for the authenticated tenant', async () => {
     prisma.document.findFirst.mockResolvedValue({
       id: 'document_1',
       tenantId: 'tenant_1',
@@ -43,6 +53,7 @@ describe('IngestionService', () => {
     const service = new IngestionService(
       prisma as never,
       objectStorage as never,
+      embeddingsService as never,
     );
 
     await expect(
@@ -71,16 +82,11 @@ describe('IngestionService', () => {
       },
     });
 
-    expect(prisma.documentChunk.createMany).toHaveBeenCalledWith({
-      data: [
-        {
-          tenantId: 'tenant_1',
-          documentId: 'document_1',
-          content: 'Hello world. This is a test document.',
-          chunkIndex: 0,
-        },
-      ],
-    });
+    expect(embeddingsService.generateEmbedding).toHaveBeenCalledWith(
+      'Hello world. This is a test document.',
+    );
+
+    expect(prisma.$executeRaw).toHaveBeenCalledTimes(1);
 
     expect(prisma.document.update).toHaveBeenLastCalledWith({
       where: {
@@ -98,6 +104,7 @@ describe('IngestionService', () => {
     const service = new IngestionService(
       prisma as never,
       objectStorage as never,
+      embeddingsService as never,
     );
 
     await expect(
@@ -105,6 +112,7 @@ describe('IngestionService', () => {
     ).rejects.toBeInstanceOf(NotFoundException);
 
     expect(objectStorage.getObject).not.toHaveBeenCalled();
+    expect(embeddingsService.generateEmbedding).not.toHaveBeenCalled();
   });
 
   it('rejects documents without stored file', async () => {
@@ -118,6 +126,7 @@ describe('IngestionService', () => {
     const service = new IngestionService(
       prisma as never,
       objectStorage as never,
+      embeddingsService as never,
     );
 
     await expect(
@@ -136,6 +145,7 @@ describe('IngestionService', () => {
     const service = new IngestionService(
       prisma as never,
       objectStorage as never,
+      embeddingsService as never,
     );
 
     await expect(

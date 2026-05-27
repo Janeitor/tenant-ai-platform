@@ -125,6 +125,8 @@ DATABASE_URL=postgresql://postgres:postgres@localhost:5432/tenant_ai?schema=publ
 REDIS_URL=redis://localhost:6379
 S3_ENDPOINT=http://localhost:9000
 API_KEY_PEPPER=change-me-in-local-env
+EMBEDDING_PROVIDER=local
+EMBEDDING_DIMENSIONS=8
 ```
 
 ## Storage Decision
@@ -191,6 +193,19 @@ POST /api/documents/:documentId/ingest
   -> creates document_chunks
   -> marks document as ready
 ```
+
+Current embedding behavior:
+
+```txt
+EmbeddingsModule
+  -> EmbeddingsService
+  -> EMBEDDING_PROVIDER token
+  -> LocalEmbeddingProvider
+```
+
+The local embedding provider is deterministic and does not call external AI APIs. It generates vectors with `EMBEDDING_DIMENSIONS=8` for development and tests. During ingestion, each text chunk receives an embedding stored in PostgreSQL using pgvector.
+
+Provider adapters for OpenAI or Gemini can be added later behind the same `EmbeddingProvider` contract.
 
 ## Database And Prisma
 

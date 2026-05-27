@@ -88,12 +88,28 @@ ObjectStoragePort reads stored object
   |
 Text is split into overlapping chunks
   |
-document_chunks rows are stored with tenantId + documentId
+LocalEmbeddingProvider generates deterministic embeddings
+  |
+document_chunks rows are stored with tenantId + documentId + embedding
   |
 Document status becomes ready
 ```
 
-Embeddings and vector storage are planned next; the current phase stores plain text chunks only.
+The current embedding provider is local and deterministic. It is used to validate the pipeline without calling OpenAI or Gemini. Real provider adapters can be added behind the same embedding provider contract.
+
+Current implementation:
+
+```txt
+EmbeddingsModule
+  |
+EmbeddingsService
+  |
+EMBEDDING_PROVIDER token
+  |
+LocalEmbeddingProvider
+  |
+pgvector embedding column on document_chunks
+```
 
 ### Question answering
 

@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
+import { EmbeddingsService } from '../embeddings/embeddings.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { OBJECT_STORAGE } from '../storage/object-storage.service';
 import { type ObjectStoragePort } from '../storage/object-storage.types';
@@ -24,6 +25,7 @@ export class IngestionService {
     private readonly prisma: PrismaService,
     @Inject(OBJECT_STORAGE)
     private readonly objectStorage: ObjectStoragePort,
+    private readonly embeddingsService: EmbeddingsService,
   ) {}
 
   async ingestDocument(
@@ -72,15 +74,29 @@ export class IngestionService {
       },
     });
 
-    if (chunks.length > 0) {
-      await this.prisma.documentChunk.createMany({
-        data: chunks.map((chunk, index) => ({
-          tenantId,
-          documentId: document.id,
-          content: chunk,
-          chunkIndex: index,
-        })),
-      });
+    for (const [index, chunk] of chunks.entries()) {
+      const embedding = await this.embeddingsService.generateEmbedding(chunk);
+
+      await this.prisma.$executeRaw`
+        INSERT INTO "document_chunks" (
+          "id",
+          "tenantId",
+          "documentId",
+          "content",
+          "chunkIndex",
+          "embedding",
+          "createdAt"
+        )
+        VALUES (
+          gen_random_uuid()::text,
+          ${tenantId},
+          ${document.id},
+          ${chunk},
+          ${index},
+          ${this.formatVector(embedding.embedding)}::vector,
+          now()
+        )
+      `;
     }
 
     await this.prisma.document.update({
@@ -121,5 +137,9 @@ export class IngestionService {
     }
 
     return chunks;
+  }
+
+  private formatVector(embedding: number[]): string {
+    return `[${embedding.join(',')}]`;
   }
 }
