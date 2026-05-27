@@ -215,6 +215,16 @@ x-api-key: tai_...
 
 `ApiKeyAuthGuard` validates the header, resolves the owning tenant and attaches authenticated API key metadata to the request. Business endpoints must use the tenant resolved from the API key instead of trusting `tenantId` from request bodies.
 
+## Vulnerability Tracking
+
+Development vulnerability findings are documented in:
+
+```txt
+docs/vulnerability-analysis.md
+```
+
+This includes the current `npm audit` finding related to Prisma development tooling and the rationale for monitoring it instead of applying a breaking automatic downgrade.
+
 ## Documentation Status
 
 This README will be updated as setup, environment variables, API endpoints and deployment instructions are defined.
