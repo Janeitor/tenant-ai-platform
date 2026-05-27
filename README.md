@@ -154,6 +154,30 @@ The API uses `@aws-sdk/client-s3` to communicate with S3-compatible storage. In 
 
 Application services should depend on the `OBJECT_STORAGE` provider token and the `ObjectStoragePort` contract instead of depending directly on `S3StorageAdapter`.
 
+The S3 adapter verifies the configured bucket before upload and creates it automatically when it does not exist.
+
+Current document endpoints:
+
+```txt
+POST /api/documents
+GET /api/documents
+POST /api/documents/upload
+```
+
+All document endpoints require:
+
+```txt
+x-api-key: tai_...
+```
+
+`POST /api/documents/upload` accepts `multipart/form-data` with a `file` field. Uploaded files are stored in the configured S3-compatible bucket using tenant-scoped object keys:
+
+```txt
+{tenantId}/documents/{timestamp}-{uuid}-{safeFileName}
+```
+
+The document row stores `storageKey` and uses `status = uploaded` after a successful object storage upload.
+
 ## Database And Prisma
 
 The API uses Prisma ORM with PostgreSQL. This project currently uses Prisma 7, which keeps the database URL in `apps/api/prisma.config.ts` instead of inside `schema.prisma`.
@@ -193,6 +217,7 @@ Current initial models:
 ```txt
 Tenant
 ApiKey
+Document
 ```
 
 The `tenants` table is the base entity for multi-tenant isolation. Future business entities such as API keys, documents, chunks, conversations and usage logs must include `tenantId`.

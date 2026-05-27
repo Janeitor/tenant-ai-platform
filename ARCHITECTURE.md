@@ -131,6 +131,16 @@ S3-compatible storage (MinIO locally)
 
 The S3 adapter uses `@aws-sdk/client-s3`. Domain services should depend on the storage contract and provider token, not directly on MinIO or a cloud-specific SDK.
 
+The adapter verifies the configured bucket before upload and creates it automatically when it does not exist.
+
+Document uploads currently use tenant-scoped object keys:
+
+```txt
+{tenantId}/documents/{timestamp}-{uuid}-{safeFileName}
+```
+
+After a successful upload, document metadata is persisted in PostgreSQL with `storageKey` and `status = uploaded`.
+
 ---
 
 ## Queue system

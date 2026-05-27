@@ -1,4 +1,15 @@
-import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Post,
+  Req,
+  UploadedFile,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 import { ApiKeyAuthGuard } from '../auth/api-key-auth.guard';
 import { type ApiKeyAuthenticatedRequest } from '../auth/api-key-authenticated-request';
@@ -6,6 +17,12 @@ import { type CreateDocumentDto } from './dto/create-document.dto';
 import { DocumentsService } from './documents.service';
 
 type DocumentResponse = Awaited<ReturnType<DocumentsService['create']>>;
+type UploadedDocumentFile = {
+  originalname: string;
+  mimetype: string;
+  size: number;
+  buffer: Buffer;
+};
 
 @Controller('documents')
 @UseGuards(ApiKeyAuthGuard)
@@ -21,6 +38,24 @@ export class DocumentsController {
       request.apiKey.tenantId,
       createDocumentDto,
     );
+  }
+
+  @Post('upload')
+  @UseInterceptors(FileInterceptor('file'))
+  upload(
+    @Req() request: ApiKeyAuthenticatedRequest,
+    @UploadedFile() file?: UploadedDocumentFile,
+  ): Promise<DocumentResponse> {
+    if (!file) {
+      throw new BadRequestException('File is required');
+    }
+
+    return this.documentsService.upload(request.apiKey.tenantId, {
+      originalName: file.originalname,
+      mimeType: file.mimetype,
+      sizeBytes: file.size,
+      buffer: file.buffer,
+    });
   }
 
   @Get()

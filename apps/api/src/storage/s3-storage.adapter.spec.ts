@@ -1,4 +1,9 @@
-import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import {
+  CreateBucketCommand,
+  HeadBucketCommand,
+  PutObjectCommand,
+  S3Client,
+} from '@aws-sdk/client-s3';
 
 import { S3StorageAdapter } from './s3-storage.adapter';
 
@@ -8,6 +13,12 @@ jest.mock('@aws-sdk/client-s3', () => {
   return {
     S3Client: jest.fn().mockImplementation(() => ({
       send,
+    })),
+    CreateBucketCommand: jest.fn().mockImplementation((input: unknown) => ({
+      input,
+    })),
+    HeadBucketCommand: jest.fn().mockImplementation((input: unknown) => ({
+      input,
     })),
     PutObjectCommand: jest.fn().mockImplementation((input: unknown) => ({
       input,
@@ -56,6 +67,12 @@ describe('S3StorageAdapter', () => {
       ContentType: 'application/pdf',
     });
 
+    expect(HeadBucketCommand).toHaveBeenCalledWith({
+      Bucket: 'tenant-ai-documents',
+    });
+
+    expect(CreateBucketCommand).not.toHaveBeenCalled();
+
     expect(clientInstance.send).toHaveBeenCalledWith({
       input: {
         Bucket: 'tenant-ai-documents',
@@ -63,6 +80,36 @@ describe('S3StorageAdapter', () => {
         Body: Buffer.from('content'),
         ContentType: 'application/pdf',
       },
+    });
+  });
+
+  it('creates the bucket when it does not exist before uploading', async () => {
+    const missingBucketError = new Error('Bucket not found');
+    missingBucketError.name = 'NoSuchBucket';
+
+    const adapter = new S3StorageAdapter(configService as never);
+    const clientInstance = (S3Client as jest.Mock).mock.results[0].value;
+    clientInstance.send.mockRejectedValueOnce(missingBucketError);
+
+    await adapter.putObject({
+      key: 'tenant_1/documents/document_1.pdf',
+      body: Buffer.from('content'),
+      contentType: 'application/pdf',
+    });
+
+    expect(HeadBucketCommand).toHaveBeenCalledWith({
+      Bucket: 'tenant-ai-documents',
+    });
+
+    expect(CreateBucketCommand).toHaveBeenCalledWith({
+      Bucket: 'tenant-ai-documents',
+    });
+
+    expect(PutObjectCommand).toHaveBeenCalledWith({
+      Bucket: 'tenant-ai-documents',
+      Key: 'tenant_1/documents/document_1.pdf',
+      Body: Buffer.from('content'),
+      ContentType: 'application/pdf',
     });
   });
 });

@@ -1,4 +1,9 @@
-import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import {
+  CreateBucketCommand,
+  HeadBucketCommand,
+  PutObjectCommand,
+  S3Client,
+} from '@aws-sdk/client-s3';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
@@ -28,6 +33,8 @@ export class S3StorageAdapter implements ObjectStoragePort {
   }
 
   async putObject(input: PutObjectInput): Promise<PutObjectResult> {
+    await this.ensureBucketExists();
+
     await this.client.send(
       new PutObjectCommand({
         Bucket: this.bucket,
@@ -41,5 +48,33 @@ export class S3StorageAdapter implements ObjectStoragePort {
       key: input.key,
       bucket: this.bucket,
     };
+  }
+
+  private async ensureBucketExists(): Promise<void> {
+    try {
+      await this.client.send(
+        new HeadBucketCommand({
+          Bucket: this.bucket,
+        }),
+      );
+    } catch (error) {
+      if (!this.isMissingBucketError(error)) {
+        throw error;
+      }
+
+      await this.client.send(
+        new CreateBucketCommand({
+          Bucket: this.bucket,
+        }),
+      );
+    }
+  }
+
+  private isMissingBucketError(error: unknown): boolean {
+    if (!(error instanceof Error)) {
+      return false;
+    }
+
+    return error.name === 'NotFound' || error.name === 'NoSuchBucket';
   }
 }
