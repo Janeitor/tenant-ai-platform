@@ -9,6 +9,7 @@ import { ApiKeysModule } from './api-keys/api-keys.module';
 import { AuthModule } from './auth/auth.module';
 import { DocumentsModule } from './documents/documents.module';
 import { StorageModule } from './storage/storage.module';
+import { IngestionModule } from './ingestion/ingestion.module';
 
 const rootEnvPath = path.resolve(process.cwd(), '../../.env');
 const rootLocalEnvPath = path.resolve(process.cwd(), '../../.env.local');
@@ -26,6 +27,7 @@ const rootLocalEnvPath = path.resolve(process.cwd(), '../../.env.local');
     AuthModule,
     DocumentsModule,
     StorageModule,
+    IngestionModule,
   ],
 })
 export class AppModule {}

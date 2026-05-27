@@ -1,9 +1,11 @@
 import {
   CreateBucketCommand,
+  GetObjectCommand,
   HeadBucketCommand,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
+import { Readable } from 'node:stream';
 
 import { S3StorageAdapter } from './s3-storage.adapter';
 
@@ -15,6 +17,9 @@ jest.mock('@aws-sdk/client-s3', () => {
       send,
     })),
     CreateBucketCommand: jest.fn().mockImplementation((input: unknown) => ({
+      input,
+    })),
+    GetObjectCommand: jest.fn().mockImplementation((input: unknown) => ({
       input,
     })),
     HeadBucketCommand: jest.fn().mockImplementation((input: unknown) => ({
@@ -60,18 +65,18 @@ describe('S3StorageAdapter', () => {
       bucket: 'tenant-ai-documents',
     });
 
+    expect(HeadBucketCommand).toHaveBeenCalledWith({
+      Bucket: 'tenant-ai-documents',
+    });
+
+    expect(CreateBucketCommand).not.toHaveBeenCalled();
+
     expect(PutObjectCommand).toHaveBeenCalledWith({
       Bucket: 'tenant-ai-documents',
       Key: 'tenant_1/documents/document_1.pdf',
       Body: Buffer.from('content'),
       ContentType: 'application/pdf',
     });
-
-    expect(HeadBucketCommand).toHaveBeenCalledWith({
-      Bucket: 'tenant-ai-documents',
-    });
-
-    expect(CreateBucketCommand).not.toHaveBeenCalled();
 
     expect(clientInstance.send).toHaveBeenCalledWith({
       input: {
@@ -110,6 +115,31 @@ describe('S3StorageAdapter', () => {
       Key: 'tenant_1/documents/document_1.pdf',
       Body: Buffer.from('content'),
       ContentType: 'application/pdf',
+    });
+  });
+
+  it('reads an object from S3-compatible storage', async () => {
+    const adapter = new S3StorageAdapter(configService as never);
+    const clientInstance = (S3Client as jest.Mock).mock.results[0].value;
+
+    clientInstance.send.mockResolvedValueOnce({
+      Body: Readable.from(['hello ', 'world']),
+      ContentType: 'text/plain',
+    });
+
+    await expect(
+      adapter.getObject({
+        key: 'tenant_1/documents/document_1.txt',
+      }),
+    ).resolves.toEqual({
+      key: 'tenant_1/documents/document_1.txt',
+      body: Buffer.from('hello world'),
+      contentType: 'text/plain',
+    });
+
+    expect(GetObjectCommand).toHaveBeenCalledWith({
+      Bucket: 'tenant-ai-documents',
+      Key: 'tenant_1/documents/document_1.txt',
     });
   });
 });

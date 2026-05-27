@@ -1,13 +1,17 @@
 import {
   CreateBucketCommand,
+  GetObjectCommand,
   HeadBucketCommand,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Readable } from 'node:stream';
 
 import {
+  type GetObjectInput,
+  type GetObjectResult,
   type ObjectStoragePort,
   type PutObjectInput,
   type PutObjectResult,
@@ -50,6 +54,29 @@ export class S3StorageAdapter implements ObjectStoragePort {
     };
   }
 
+  async getObject(input: GetObjectInput): Promise<GetObjectResult> {
+    const response = await this.client.send(
+      new GetObjectCommand({
+        Bucket: this.bucket,
+        Key: input.key,
+      }),
+    );
+
+    if (!response.Body) {
+      return {
+        key: input.key,
+        body: Buffer.alloc(0),
+        contentType: response.ContentType ?? null,
+      };
+    }
+
+    return {
+      key: input.key,
+      body: await this.readBody(response.Body),
+      contentType: response.ContentType ?? null,
+    };
+  }
+
   private async ensureBucketExists(): Promise<void> {
     try {
       await this.client.send(
@@ -68,6 +95,28 @@ export class S3StorageAdapter implements ObjectStoragePort {
         }),
       );
     }
+  }
+
+  private async readBody(body: unknown): Promise<Buffer> {
+    if (body instanceof Readable) {
+      const chunks: Buffer[] = [];
+
+      for await (const chunk of body) {
+        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      }
+
+      return Buffer.concat(chunks);
+    }
+
+    if (body instanceof Uint8Array) {
+      return Buffer.from(body);
+    }
+
+    if (typeof body === 'string') {
+      return Buffer.from(body);
+    }
+
+    return Buffer.alloc(0);
   }
 
   private isMissingBucketError(error: unknown): boolean {

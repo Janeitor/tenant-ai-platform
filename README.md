@@ -162,6 +162,7 @@ Current document endpoints:
 POST /api/documents
 GET /api/documents
 POST /api/documents/upload
+POST /api/documents/:documentId/ingest
 ```
 
 All document endpoints require:
@@ -177,6 +178,19 @@ x-api-key: tai_...
 ```
 
 The document row stores `storageKey` and uses `status = uploaded` after a successful object storage upload.
+
+Basic ingestion currently supports `text/plain` documents. The ingestion endpoint reads the stored object through the storage abstraction, extracts UTF-8 text, splits it into overlapping chunks, stores them in `document_chunks`, and updates the document to `status = ready`.
+
+Current ingestion behavior:
+
+```txt
+POST /api/documents/:documentId/ingest
+  -> requires x-api-key
+  -> filters document by authenticated tenantId
+  -> supports text/plain only
+  -> creates document_chunks
+  -> marks document as ready
+```
 
 ## Database And Prisma
 
@@ -218,6 +232,7 @@ Current initial models:
 Tenant
 ApiKey
 Document
+DocumentChunk
 ```
 
 The `tenants` table is the base entity for multi-tenant isolation. Future business entities such as API keys, documents, chunks, conversations and usage logs must include `tenantId`.

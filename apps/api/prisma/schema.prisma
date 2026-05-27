@@ -17,6 +17,8 @@ model Tenant {
   apiKeys ApiKey[]
   documents Document[]
 
+  documentChunks DocumentChunk[]
+
   @@map("tenants")
 }
 
@@ -48,6 +50,25 @@ model Document {
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  chunks DocumentChunk[]
+
   @@index([tenantId])
   @@map("documents")
+}
+
+model DocumentChunk {
+  id        String   @id @default(cuid())
+  tenantId  String
+  documentId String
+  content   String
+  chunkIndex Int
+  createdAt DateTime @default(now())
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, chunkIndex])
+  @@index([tenantId])
+  @@index([documentId])
+  @@map("document_chunks")
 }

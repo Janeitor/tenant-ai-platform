@@ -75,6 +75,26 @@ Rules:
 5. Generate embeddings
 6. Store vectors
 
+Current implementation supports a first ingestion phase for `text/plain` documents:
+
+```txt
+POST /api/documents/:documentId/ingest
+  |
+ApiKeyAuthGuard resolves tenantId
+  |
+IngestionService loads document by id + tenantId
+  |
+ObjectStoragePort reads stored object
+  |
+Text is split into overlapping chunks
+  |
+document_chunks rows are stored with tenantId + documentId
+  |
+Document status becomes ready
+```
+
+Embeddings and vector storage are planned next; the current phase stores plain text chunks only.
+
 ### Question answering
 
 1. Receive user question
