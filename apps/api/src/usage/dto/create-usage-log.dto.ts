@@ -1,9 +1,37 @@
-export interface CreateUsageLogDto {
-  tenantId: string;
-  provider: string;
-  model: string;
-  inputTokens: number | null;
-  outputTokens: number | null;
-  totalTokens: number | null;
-  estimatedCostUsd: number | null;
+import {
+  IsNumber,
+  IsOptional,
+  IsString,
+  Min,
+} from 'class-validator';
+
+export class CreateUsageLogDto {
+  @IsString()
+  tenantId!: string;
+
+  @IsString()
+  provider!: string;
+
+  @IsString()
+  model!: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  inputTokens!: number | null;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  outputTokens!: number | null;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  totalTokens!: number | null;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  estimatedCostUsd!: number | null;
 }

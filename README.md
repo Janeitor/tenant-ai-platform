@@ -91,6 +91,26 @@ npm run test
 npm run build
 ```
 
+## API Validation
+
+The API uses NestJS `ValidationPipe` with DTO classes and `class-validator` decorators to validate JSON request bodies at runtime.
+
+Global validation settings:
+
+```txt
+whitelist: true
+forbidNonWhitelisted: true
+transform: true
+```
+
+This means:
+
+- fields not declared in DTOs are rejected with `400 Bad Request`
+- required fields such as `question` are validated before reaching controllers/services
+- protected business endpoints reject client-supplied fields such as `tenantId` when they are not part of the DTO
+
+Tenant identity must come from authenticated credentials such as `x-api-key`, not from request bodies.
+
 ## Local Infrastructure
 
 The project uses Docker Compose for local infrastructure services:

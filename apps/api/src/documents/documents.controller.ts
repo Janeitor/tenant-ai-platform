@@ -13,7 +13,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 
 import { ApiKeyAuthGuard } from '../auth/api-key-auth.guard';
 import { type ApiKeyAuthenticatedRequest } from '../auth/api-key-authenticated-request';
-import { type CreateDocumentDto } from './dto/create-document.dto';
+import { CreateDocumentDto } from './dto/create-document.dto';
 import { DocumentsService } from './documents.service';
 
 type DocumentResponse = Awaited<ReturnType<DocumentsService['create']>>;

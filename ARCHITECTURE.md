@@ -250,9 +250,17 @@ The provider layer must be abstracted.
 
 - API key authentication
 - tenant isolation
+- global DTO validation with NestJS ValidationPipe
 - file validation
 - restricted logging
 - environment variable secrets
+
+Validation rules:
+
+- request body DTOs use runtime validation decorators
+- unknown body properties are rejected
+- business endpoints must not trust tenantId from request bodies
+- tenant identity is resolved from API keys
 
 ---
 

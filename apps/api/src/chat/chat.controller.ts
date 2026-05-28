@@ -3,7 +3,7 @@ import { Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
 import { ApiKeyAuthGuard } from '../auth/api-key-auth.guard';
 import { type ApiKeyAuthenticatedRequest } from '../auth/api-key-authenticated-request';
 import { ChatService, type AskResponse } from './chat.service';
-import { type AskDto } from './dto/ask.dto';
+import { AskDto } from './dto/ask.dto';
 
 @Controller('ask')
 @UseGuards(ApiKeyAuthGuard)

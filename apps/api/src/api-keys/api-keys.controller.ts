@@ -5,7 +5,7 @@ import {
   type ApiKeyListItem,
   type CreatedApiKeyResponse,
 } from './api-keys.service';
-import { type CreateApiKeyDto } from './dto/create-api-key.dto';
+import { CreateApiKeyDto } from './dto/create-api-key.dto';
 
 @Controller('tenants/:tenantId/api-keys')
 export class ApiKeysController {
