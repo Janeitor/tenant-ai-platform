@@ -138,6 +138,22 @@ Return chunk content + document source metadata
 
 The current vector score uses pgvector L2 distance through the `<->` operator. Lower scores represent closer vectors. Because the current embedding provider is local and deterministic, retrieval validates architecture and tenant filtering before external embedding providers are introduced.
 
+Current ask phase:
+
+```txt
+POST /api/ask
+  |
+ApiKeyAuthGuard resolves tenantId
+  |
+ChatService calls RetrievalService
+  |
+Retrieved chunks become local answer context
+  |
+Response includes answer + sources + usage shape
+```
+
+The current ask implementation is retrieval-only and does not call an external LLM yet. It preserves the response contract expected for the final RAG API, including sources and usage metadata with token fields set to `null` until a real LLM provider is integrated.
+
 ---
 
 ## Database

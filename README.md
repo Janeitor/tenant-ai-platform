@@ -247,6 +247,62 @@ query text
 
 The current score is pgvector L2 distance using the `<->` operator. Lower scores mean closer vectors. With the local deterministic provider, ranking validates the technical pipeline but does not yet represent production semantic quality.
 
+Current ask endpoint:
+
+```txt
+POST /api/ask
+```
+
+Request body:
+
+```json
+{
+  "question": "prueba RAG",
+  "limit": 5
+}
+```
+
+The endpoint requires:
+
+```txt
+x-api-key: tai_...
+```
+
+Current ask behavior:
+
+```txt
+question
+  -> tenant-scoped retrieval
+  -> local retrieval-only answer
+  -> sources
+  -> usage metadata shape
+```
+
+The current implementation does not call an external LLM. It returns a local answer based on retrieved context and preserves the final response shape expected by the product:
+
+```json
+{
+  "answer": "Based on the available documents: ...",
+  "sources": [
+    {
+      "documentId": "...",
+      "documentName": "sample-document.txt",
+      "chunkId": "..."
+    }
+  ],
+  "usage": {
+    "provider": "local",
+    "model": "retrieval-only",
+    "inputTokens": null,
+    "outputTokens": null,
+    "totalTokens": null,
+    "estimatedCostUsd": null
+  }
+}
+```
+
+When no context is found, the endpoint states that the available documents do not contain enough information.
+
 ## Database And Prisma
 
 The API uses Prisma ORM with PostgreSQL. This project currently uses Prisma 7, which keeps the database URL in `apps/api/prisma.config.ts` instead of inside `schema.prisma`.
