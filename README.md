@@ -33,6 +33,13 @@ docker compose version
 
 The project should use the same Node.js major version locally, in Docker and in GitHub Actions.
 
+Currently tested with:
+
+```txt
+Node.js v22.22.3
+npm 10.9.8
+```
+
 ## Planned Tech Stack
 
 - Backend: NestJS + TypeScript
@@ -206,6 +213,39 @@ EmbeddingsModule
 The local embedding provider is deterministic and does not call external AI APIs. It generates vectors with `EMBEDDING_DIMENSIONS=8` for development and tests. During ingestion, each text chunk receives an embedding stored in PostgreSQL using pgvector.
 
 Provider adapters for OpenAI or Gemini can be added later behind the same `EmbeddingProvider` contract.
+
+Current retrieval endpoint:
+
+```txt
+POST /api/retrieval/search
+```
+
+Request body:
+
+```json
+{
+  "query": "prueba RAG",
+  "limit": 5
+}
+```
+
+The endpoint requires:
+
+```txt
+x-api-key: tai_...
+```
+
+Retrieval behavior:
+
+```txt
+query text
+  -> local embedding
+  -> pgvector similarity search
+  -> tenantId filter from API key
+  -> chunks with document source metadata
+```
+
+The current score is pgvector L2 distance using the `<->` operator. Lower scores mean closer vectors. With the local deterministic provider, ranking validates the technical pipeline but does not yet represent production semantic quality.
 
 ## Database And Prisma
 

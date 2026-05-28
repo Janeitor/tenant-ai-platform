@@ -120,6 +120,24 @@ pgvector embedding column on document_chunks
 5. Call LLM
 6. Return response + sources
 
+Current retrieval phase:
+
+```txt
+POST /api/retrieval/search
+  |
+ApiKeyAuthGuard resolves tenantId
+  |
+EmbeddingsService generates query embedding
+  |
+RetrievalService runs pgvector SQL search
+  |
+WHERE document_chunks.tenantId = authenticated tenantId
+  |
+Return chunk content + document source metadata
+```
+
+The current vector score uses pgvector L2 distance through the `<->` operator. Lower scores represent closer vectors. Because the current embedding provider is local and deterministic, retrieval validates architecture and tenant filtering before external embedding providers are introduced.
+
 ---
 
 ## Database
