@@ -5,11 +5,16 @@ describe('ChatService', () => {
     search: jest.fn(),
   };
 
+  const usageService = {
+    createLog: jest.fn(),
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
+    usageService.createLog.mockResolvedValue({});
   });
 
-  it('answers using retrieved context and returns sources', async () => {
+  it('answers using retrieved context, returns sources and logs usage', async () => {
     retrievalService.search.mockResolvedValue({
       results: [
         {
@@ -22,7 +27,10 @@ describe('ChatService', () => {
       ],
     });
 
-    const service = new ChatService(retrievalService as never);
+    const service = new ChatService(
+      retrievalService as never,
+      usageService as never,
+    );
 
     await expect(
       service.ask('tenant_1', {
@@ -53,14 +61,27 @@ describe('ChatService', () => {
       query: 'prueba RAG',
       limit: 5,
     });
+
+    expect(usageService.createLog).toHaveBeenCalledWith({
+      tenantId: 'tenant_1',
+      provider: 'local',
+      model: 'retrieval-only',
+      inputTokens: null,
+      outputTokens: null,
+      totalTokens: null,
+      estimatedCostUsd: null,
+    });
   });
 
-  it('returns not enough information answer when no context is found', async () => {
+  it('returns not enough information answer and logs usage when no context is found', async () => {
     retrievalService.search.mockResolvedValue({
       results: [],
     });
 
-    const service = new ChatService(retrievalService as never);
+    const service = new ChatService(
+      retrievalService as never,
+      usageService as never,
+    );
 
     await expect(
       service.ask('tenant_1', {
@@ -83,6 +104,16 @@ describe('ChatService', () => {
     expect(retrievalService.search).toHaveBeenCalledWith('tenant_1', {
       query: 'unknown question',
       limit: 5,
+    });
+
+    expect(usageService.createLog).toHaveBeenCalledWith({
+      tenantId: 'tenant_1',
+      provider: 'local',
+      model: 'retrieval-only',
+      inputTokens: null,
+      outputTokens: null,
+      totalTokens: null,
+      estimatedCostUsd: null,
     });
   });
 });

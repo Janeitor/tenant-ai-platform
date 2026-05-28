@@ -150,9 +150,23 @@ ChatService calls RetrievalService
 Retrieved chunks become local answer context
   |
 Response includes answer + sources + usage shape
+  |
+UsageService persists usage_logs row
 ```
 
 The current ask implementation is retrieval-only and does not call an external LLM yet. It preserves the response contract expected for the final RAG API, including sources and usage metadata with token fields set to `null` until a real LLM provider is integrated.
+
+Usage logging is persisted from the initial implementation:
+
+```txt
+UsageModule
+  |
+UsageService
+  |
+usage_logs
+  |
+tenantId + provider + model + token/cost fields
+```
 
 ---
 

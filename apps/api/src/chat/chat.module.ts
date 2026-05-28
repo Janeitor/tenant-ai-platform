@@ -5,9 +5,10 @@ import { AuthModule } from '../auth/auth.module';
 import { RetrievalModule } from '../retrieval/retrieval.module';
 import { ChatController } from './chat.controller';
 import { ChatService } from './chat.service';
+import { UsageModule } from '../usage/usage.module';
 
 @Module({
-  imports: [ApiKeysModule, AuthModule, RetrievalModule],
+  imports: [ApiKeysModule, AuthModule, RetrievalModule, UsageModule],
   controllers: [ChatController],
   providers: [ChatService],
 })

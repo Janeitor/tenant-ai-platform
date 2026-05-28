@@ -13,6 +13,7 @@ import { IngestionModule } from './ingestion/ingestion.module';
 import { EmbeddingsModule } from './embeddings/embeddings.module';
 import { RetrievalModule } from './retrieval/retrieval.module';
 import { ChatModule } from './chat/chat.module';
+import { UsageModule } from './usage/usage.module';
 
 const rootEnvPath = path.resolve(process.cwd(), '../../.env');
 const rootLocalEnvPath = path.resolve(process.cwd(), '../../.env.local');
@@ -34,6 +35,7 @@ const rootLocalEnvPath = path.resolve(process.cwd(), '../../.env.local');
     EmbeddingsModule,
     RetrievalModule,
     ChatModule,
+    UsageModule,
   ],
 })
 export class AppModule {}

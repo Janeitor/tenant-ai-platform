@@ -303,6 +303,19 @@ The current implementation does not call an external LLM. It returns a local ans
 
 When no context is found, the endpoint states that the available documents do not contain enough information.
 
+Each `/api/ask` request is persisted in `usage_logs` through `UsageModule`. Token and cost fields are currently stored as `null` because the local retrieval-only implementation does not call a provider that returns token usage.
+
+Current usage behavior:
+
+```txt
+POST /api/ask
+  -> creates usage_logs row
+  -> tenantId from x-api-key
+  -> provider = local
+  -> model = retrieval-only
+  -> token fields = null
+```
+
 ## Database And Prisma
 
 The API uses Prisma ORM with PostgreSQL. This project currently uses Prisma 7, which keeps the database URL in `apps/api/prisma.config.ts` instead of inside `schema.prisma`.
@@ -344,6 +357,7 @@ Tenant
 ApiKey
 Document
 DocumentChunk
+UsageLog
 ```
 
 The `tenants` table is the base entity for multi-tenant isolation. Future business entities such as API keys, documents, chunks, conversations and usage logs must include `tenantId`.

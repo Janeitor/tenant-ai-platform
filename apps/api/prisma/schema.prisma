@@ -18,6 +18,7 @@ model Tenant {
   documents Document[]
 
   documentChunks DocumentChunk[]
+  usageLogs UsageLog[]
 
   @@map("tenants")
 }
@@ -72,4 +73,22 @@ model DocumentChunk {
   @@index([tenantId])
   @@index([documentId])
   @@map("document_chunks")
+}
+
+model UsageLog {
+  id               String   @id @default(cuid())
+  tenantId         String
+  provider         String
+  model            String
+  inputTokens      Int?
+  outputTokens     Int?
+  totalTokens      Int?
+  estimatedCostUsd Decimal? @db.Decimal(12, 6)
+  createdAt        DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([createdAt])
+  @@map("usage_logs")
 }
