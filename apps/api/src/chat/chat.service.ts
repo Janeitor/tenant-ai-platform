@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
 
+import { LlmService } from '../llm/llm.service';
+import { type LlmUsage } from '../llm/llm.provider';
 import { RetrievalService } from '../retrieval/retrieval.service';
 import { type AskDto } from './dto/ask.dto';
 import { UsageService } from '../usage/usage.service';
@@ -10,25 +12,17 @@ export interface AskSource {
     chunkId: string;
 }
 
-export interface AskUsage {
-    provider: string;
-    model: string;
-    inputTokens: number | null;
-    outputTokens: number | null;
-    totalTokens: number | null;
-    estimatedCostUsd: number | null;
-}
-
 export interface AskResponse {
     answer: string;
     sources: AskSource[];
-    usage: AskUsage;
+    usage: LlmUsage;
 }
 
 @Injectable()
 export class ChatService {
     constructor(
         private readonly retrievalService: RetrievalService,
+        private readonly llmService: LlmService,
         private readonly usageService: UsageService,
     ) { }
 
@@ -38,32 +32,24 @@ export class ChatService {
             limit: askDto.limit ?? 5,
         });
 
-        if (retrieval.results.length === 0) {
-            const response: AskResponse = {
-                answer:
-                    'The available documents do not contain enough information to answer this question.',
-                sources: [],
-                usage: this.buildLocalUsage(),
-            };
-
-            await this.usageService.createLog({
-                tenantId,
-                ...response.usage,
-            });
-
-            return response;
-        }
-
-        const [topResult] = retrieval.results;
+        const llmResult = await this.llmService.generateAnswer({
+            question: askDto.question,
+            contexts: retrieval.results.map((result) => ({
+                documentId: result.documentId,
+                documentName: result.documentName,
+                chunkId: result.chunkId,
+                content: result.content,
+            })),
+        });
 
         const response: AskResponse = {
-            answer: `Based on the available documents: ${topResult.content}`,
+            answer: llmResult.answer,
             sources: retrieval.results.map((result) => ({
                 documentId: result.documentId,
                 documentName: result.documentName,
                 chunkId: result.chunkId,
             })),
-            usage: this.buildLocalUsage(),
+            usage: llmResult.usage,
         };
 
         await this.usageService.createLog({
@@ -72,16 +58,5 @@ export class ChatService {
         });
 
         return response;
-    }
-
-    private buildLocalUsage(): AskUsage {
-        return {
-            provider: 'local',
-            model: 'retrieval-only',
-            inputTokens: null,
-            outputTokens: null,
-            totalTokens: null,
-            estimatedCostUsd: null,
-        };
     }
 }

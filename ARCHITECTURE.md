@@ -147,14 +147,32 @@ ApiKeyAuthGuard resolves tenantId
   |
 ChatService calls RetrievalService
   |
-Retrieved chunks become local answer context
+Retrieved chunks become answer context
+  |
+ChatService calls LlmService
+  |
+LLM_PROVIDER resolves LocalLlmProvider
   |
 Response includes answer + sources + usage shape
   |
 UsageService persists usage_logs row
 ```
 
-The current ask implementation is retrieval-only and does not call an external LLM yet. It preserves the response contract expected for the final RAG API, including sources and usage metadata with token fields set to `null` until a real LLM provider is integrated.
+The current ask implementation is retrieval-only and does not call an external LLM yet. LLM access is isolated behind `LlmModule`, `LlmService` and the `LLM_PROVIDER` token so future OpenAI or Gemini adapters can be added without changing controller behavior or retrieval logic.
+
+Current LLM implementation:
+
+```txt
+LlmModule
+  |
+LlmService
+  |
+LLM_PROVIDER token
+  |
+LocalLlmProvider
+```
+
+The local provider preserves the response contract expected for the final RAG API, including sources and usage metadata with token fields set to `null` until a real LLM provider is integrated.
 
 Usage logging is persisted from the initial implementation:
 

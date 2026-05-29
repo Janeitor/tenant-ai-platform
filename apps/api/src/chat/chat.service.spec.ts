@@ -5,6 +5,10 @@ describe('ChatService', () => {
     search: jest.fn(),
   };
 
+  const llmService = {
+    generateAnswer: jest.fn(),
+  };
+
   const usageService = {
     createLog: jest.fn(),
   };
@@ -26,9 +30,22 @@ describe('ChatService', () => {
         },
       ],
     });
+    llmService.generateAnswer.mockResolvedValue({
+      answer:
+        'Based on the available documents: Contenido de prueba para RAG',
+      usage: {
+        provider: 'local',
+        model: 'retrieval-only',
+        inputTokens: null,
+        outputTokens: null,
+        totalTokens: null,
+        estimatedCostUsd: null,
+      },
+    });
 
     const service = new ChatService(
       retrievalService as never,
+      llmService as never,
       usageService as never,
     );
 
@@ -62,6 +79,18 @@ describe('ChatService', () => {
       limit: 5,
     });
 
+    expect(llmService.generateAnswer).toHaveBeenCalledWith({
+      question: 'prueba RAG',
+      contexts: [
+        {
+          chunkId: 'chunk_1',
+          documentId: 'document_1',
+          documentName: 'sample-document.txt',
+          content: 'Contenido de prueba para RAG',
+        },
+      ],
+    });
+
     expect(usageService.createLog).toHaveBeenCalledWith({
       tenantId: 'tenant_1',
       provider: 'local',
@@ -77,9 +106,22 @@ describe('ChatService', () => {
     retrievalService.search.mockResolvedValue({
       results: [],
     });
+    llmService.generateAnswer.mockResolvedValue({
+      answer:
+        'The available documents do not contain enough information to answer this question.',
+      usage: {
+        provider: 'local',
+        model: 'retrieval-only',
+        inputTokens: null,
+        outputTokens: null,
+        totalTokens: null,
+        estimatedCostUsd: null,
+      },
+    });
 
     const service = new ChatService(
       retrievalService as never,
+      llmService as never,
       usageService as never,
     );
 
@@ -104,6 +146,11 @@ describe('ChatService', () => {
     expect(retrievalService.search).toHaveBeenCalledWith('tenant_1', {
       query: 'unknown question',
       limit: 5,
+    });
+
+    expect(llmService.generateAnswer).toHaveBeenCalledWith({
+      question: 'unknown question',
+      contexts: [],
     });
 
     expect(usageService.createLog).toHaveBeenCalledWith({

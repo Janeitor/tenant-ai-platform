@@ -14,6 +14,7 @@ import { EmbeddingsModule } from './embeddings/embeddings.module';
 import { RetrievalModule } from './retrieval/retrieval.module';
 import { ChatModule } from './chat/chat.module';
 import { UsageModule } from './usage/usage.module';
+import { LlmModule } from './llm/llm.module';
 
 const rootEnvPath = path.resolve(process.cwd(), '../../.env');
 const rootLocalEnvPath = path.resolve(process.cwd(), '../../.env.local');
@@ -34,6 +35,7 @@ const rootLocalEnvPath = path.resolve(process.cwd(), '../../.env.local');
     IngestionModule,
     EmbeddingsModule,
     RetrievalModule,
+    LlmModule,
     ChatModule,
     UsageModule,
   ],

@@ -295,12 +295,24 @@ Current ask behavior:
 ```txt
 question
   -> tenant-scoped retrieval
-  -> local retrieval-only answer
+  -> LlmService
+  -> local LLM provider
   -> sources
   -> usage metadata shape
 ```
 
-The current implementation does not call an external LLM. It returns a local answer based on retrieved context and preserves the final response shape expected by the product:
+The current implementation does not call an external LLM. `ChatService` delegates answer generation to `LlmService`, which currently uses a local provider. This keeps the `/ask` flow ready for future OpenAI or Gemini adapters without coupling the chat module directly to a specific SDK.
+
+Current LLM abstraction:
+
+```txt
+ChatService
+  -> LlmService
+  -> LLM_PROVIDER token
+  -> LocalLlmProvider
+```
+
+The local provider returns an answer based on retrieved context and preserves the final response shape expected by the product:
 
 ```json
 {
