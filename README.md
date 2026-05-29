@@ -353,7 +353,7 @@ POST /api/ask
 Current usage visibility endpoint:
 
 ```txt
-GET /api/usage
+GET /api/usage?page=1&limit=50&startDate=2026-05-01&endDate=2026-05-29
 ```
 
 The endpoint requires:
@@ -364,22 +364,45 @@ x-api-key: tai_...
 
 It returns usage logs for the authenticated tenant only. The client does not send `tenantId`; the API resolves it from the API key.
 
+Query parameters:
+
+```txt
+page      optional, default 1
+limit     optional, default 50, max 100
+startDate optional, YYYY-MM-DD
+endDate   optional, YYYY-MM-DD
+```
+
+If `startDate` and `endDate` are omitted, the endpoint uses the current calendar month. If one date is provided, the other one is required. The maximum custom date range is 90 days.
+
 Example response:
 
 ```json
-[
-  {
-    "id": "...",
-    "tenantId": "...",
-    "provider": "local",
-    "model": "retrieval-only",
-    "inputTokens": null,
-    "outputTokens": null,
-    "totalTokens": null,
-    "estimatedCostUsd": null,
-    "createdAt": "2026-05-29T02:05:07.486Z"
+{
+  "data": [
+    {
+      "id": "...",
+      "tenantId": "...",
+      "provider": "local",
+      "model": "retrieval-only",
+      "inputTokens": null,
+      "outputTokens": null,
+      "totalTokens": null,
+      "estimatedCostUsd": null,
+      "createdAt": "2026-05-29T02:05:07.486Z"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 50,
+    "total": 1,
+    "totalPages": 1
+  },
+  "filters": {
+    "startDate": "2026-05-01",
+    "endDate": "2026-05-31"
   }
-]
+}
 ```
 
 ## Database And Prisma

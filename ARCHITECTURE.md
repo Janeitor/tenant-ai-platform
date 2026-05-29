@@ -190,6 +190,8 @@ tenantId + provider + model + token/cost fields
 
 `GET /api/usage` uses `ApiKeyAuthGuard` and reads `tenantId` from the authenticated API key. Usage logs are not queried by tenantId supplied by the client.
 
+Usage visibility uses offset pagination with `page` and `limit`. Date filters use `YYYY-MM-DD`; when no dates are provided, the service defaults to the current calendar month. Custom ranges are capped at 90 days. The service applies tenant filtering, date filtering, `createdAt DESC` ordering, `skip/take` pagination and a matching tenant-scoped `count` query.
+
 ---
 
 ## Database
