@@ -160,6 +160,8 @@ UsageService persists usage_logs row
 
 The current ask implementation is retrieval-only and does not call an external LLM yet. LLM access is isolated behind `LlmModule`, `LlmService` and the `LLM_PROVIDER` token so future OpenAI or Gemini adapters can be added without changing controller behavior or retrieval logic.
 
+The active LLM provider is selected from configuration through `LLM_PROVIDER_NAME`. The only supported value is currently `local`; unsupported values fail at startup to avoid silently running with the wrong provider.
+
 Current LLM implementation:
 
 ```txt
@@ -168,6 +170,8 @@ LlmModule
 LlmService
   |
 LLM_PROVIDER token
+  |
+Provider selector reads LLM_PROVIDER_NAME
   |
 LocalLlmProvider
 ```

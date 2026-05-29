@@ -154,6 +154,7 @@ S3_ENDPOINT=http://localhost:9000
 API_KEY_PEPPER=change-me-in-local-env
 EMBEDDING_PROVIDER=local
 EMBEDDING_DIMENSIONS=8
+LLM_PROVIDER_NAME=local
 ```
 
 ## Storage Decision
@@ -302,6 +303,14 @@ question
 ```
 
 The current implementation does not call an external LLM. `ChatService` delegates answer generation to `LlmService`, which currently uses a local provider. This keeps the `/ask` flow ready for future OpenAI or Gemini adapters without coupling the chat module directly to a specific SDK.
+
+The active LLM provider is selected with:
+
+```env
+LLM_PROVIDER_NAME=local
+```
+
+Only `local` is currently supported. Unsupported values fail at application startup with a clear error so invalid provider configuration is detected early.
 
 Current LLM abstraction:
 
