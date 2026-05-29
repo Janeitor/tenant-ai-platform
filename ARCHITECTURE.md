@@ -178,6 +178,30 @@ LocalLlmProvider
 
 The local provider preserves the response contract expected for the final RAG API, including sources and usage metadata with token fields set to `null` until a real LLM provider is integrated.
 
+Future external LLM adapters must follow these rules:
+
+- The adapter must not resolve or accept `tenantId`.
+- The adapter must not query Prisma or retrieve documents.
+- The adapter receives only tenant-filtered contexts prepared by retrieval.
+- The adapter must build prompts using only retrieved context plus the user question.
+- The adapter must not log full prompts, API keys or document contents.
+- The adapter must return a consistent usage object, using `null` for token or cost values unavailable from the provider.
+- Automated tests must mock external providers and must not call real OpenAI or Gemini APIs.
+
+Future provider flow:
+
+```txt
+ChatService
+  |
+LlmService
+  |
+LLM_PROVIDER
+  |
+OpenAiLlmProvider or GeminiLlmProvider
+  |
+answer + usage
+```
+
 Usage logging is persisted from the initial implementation:
 
 ```txt

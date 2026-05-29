@@ -312,6 +312,8 @@ LLM_PROVIDER_NAME=local
 
 Only `local` is currently supported. Unsupported values fail at application startup with a clear error so invalid provider configuration is detected early.
 
+Future OpenAI or Gemini providers should be added behind the existing `LlmProvider` contract. External provider adapters must receive only tenant-filtered context from retrieval and must not query documents or resolve tenant ownership themselves.
+
 Current LLM abstraction:
 
 ```txt
