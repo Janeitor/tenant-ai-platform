@@ -200,7 +200,9 @@ All document endpoints require:
 x-api-key: tai_...
 ```
 
-`POST /api/documents/upload` accepts `multipart/form-data` with a `file` field. Uploaded files are stored in the configured S3-compatible bucket using tenant-scoped object keys:
+`POST /api/documents/upload` accepts `multipart/form-data` with a `file` field. Upload validation currently allows only `text/plain` documents and limits each file to 5 MB. This matches the current ingestion pipeline, which extracts UTF-8 text from plain text files before chunking.
+
+Uploaded files are stored in the configured S3-compatible bucket using tenant-scoped object keys:
 
 ```txt
 {tenantId}/documents/{timestamp}-{uuid}-{safeFileName}

@@ -225,6 +225,8 @@ Document uploads currently use tenant-scoped object keys:
 
 After a successful upload, document metadata is persisted in PostgreSQL with `storageKey` and `status = uploaded`.
 
+Upload validation is performed at the controller boundary before the document service is called. The current accepted MIME type is `text/plain`, with a maximum file size of 5 MB. Wider formats such as PDF should be added together with a dedicated extractor and related tests.
+
 ---
 
 ## Queue system

@@ -58,11 +58,11 @@ describe('DocumentsService', () => {
     const uploadedDocument = {
       id: 'document_1',
       tenantId: 'tenant_1',
-      name: 'HR Policy.pdf',
-      mimeType: 'application/pdf',
+      name: 'HR Policy.txt',
+      mimeType: 'text/plain',
       sizeBytes: 12345,
       status: 'uploaded',
-      storageKey: 'tenant_1/documents/generated-HR_Policy.pdf',
+      storageKey: 'tenant_1/documents/generated-HR_Policy.txt',
       createdAt: new Date('2026-01-01T00:00:00.000Z'),
       updatedAt: new Date('2026-01-01T00:00:00.000Z'),
     };
@@ -81,8 +81,8 @@ describe('DocumentsService', () => {
 
     await expect(
       service.upload('tenant_1', {
-        originalName: 'HR Policy.pdf',
-        mimeType: 'application/pdf',
+        originalName: 'HR Policy.txt',
+        mimeType: 'text/plain',
         sizeBytes: 12345,
         buffer: Buffer.from('content'),
       }),
@@ -90,20 +90,20 @@ describe('DocumentsService', () => {
 
     expect(objectStorage.putObject).toHaveBeenCalledWith({
       key: expect.stringMatching(
-        /^tenant_1\/documents\/\d+-[a-f0-9-]+-HR_Policy\.pdf$/,
+        /^tenant_1\/documents\/\d+-[a-f0-9-]+-HR_Policy\.txt$/,
       ),
       body: Buffer.from('content'),
-      contentType: 'application/pdf',
+      contentType: 'text/plain',
     });
 
     expect(prisma.document.create).toHaveBeenCalledWith({
       data: {
         tenantId: 'tenant_1',
-        name: 'HR Policy.pdf',
-        mimeType: 'application/pdf',
+        name: 'HR Policy.txt',
+        mimeType: 'text/plain',
         sizeBytes: 12345,
         storageKey: expect.stringMatching(
-          /^tenant_1\/documents\/\d+-[a-f0-9-]+-HR_Policy\.pdf$/,
+          /^tenant_1\/documents\/\d+-[a-f0-9-]+-HR_Policy\.txt$/,
         ),
         status: 'uploaded',
       },
