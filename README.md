@@ -350,6 +350,38 @@ POST /api/ask
   -> token fields = null
 ```
 
+Current usage visibility endpoint:
+
+```txt
+GET /api/usage
+```
+
+The endpoint requires:
+
+```txt
+x-api-key: tai_...
+```
+
+It returns usage logs for the authenticated tenant only. The client does not send `tenantId`; the API resolves it from the API key.
+
+Example response:
+
+```json
+[
+  {
+    "id": "...",
+    "tenantId": "...",
+    "provider": "local",
+    "model": "retrieval-only",
+    "inputTokens": null,
+    "outputTokens": null,
+    "totalTokens": null,
+    "estimatedCostUsd": null,
+    "createdAt": "2026-05-29T02:05:07.486Z"
+  }
+]
+```
+
 ## Database And Prisma
 
 The API uses Prisma ORM with PostgreSQL. This project currently uses Prisma 7, which keeps the database URL in `apps/api/prisma.config.ts` instead of inside `schema.prisma`.

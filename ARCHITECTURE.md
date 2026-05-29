@@ -179,12 +179,16 @@ Usage logging is persisted from the initial implementation:
 ```txt
 UsageModule
   |
+UsageController exposes tenant-scoped reads
+  |
 UsageService
   |
 usage_logs
   |
 tenantId + provider + model + token/cost fields
 ```
+
+`GET /api/usage` uses `ApiKeyAuthGuard` and reads `tenantId` from the authenticated API key. Usage logs are not queried by tenantId supplied by the client.
 
 ---
 
