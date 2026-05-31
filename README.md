@@ -244,6 +244,18 @@ Math.ceil(content.length / 4)
 
 This value will be used by the context budget selection flow before sending retrieved context to an LLM provider.
 
+Context budget selection is implemented as an isolated service:
+
+```txt
+ContextSelectionService
+  -> receives tenant-filtered retrieval chunks
+  -> preserves retrieval order
+  -> uses tokenCount or Math.ceil(content.length / 4)
+  -> selects chunks within maxContextTokens and candidateLimit
+```
+
+This service is prepared for the `/api/ask` flow but is not yet connected to the chat endpoint.
+
 Provider adapters for OpenAI or Gemini can be added later behind the same `EmbeddingProvider` contract.
 
 Current retrieval endpoint:

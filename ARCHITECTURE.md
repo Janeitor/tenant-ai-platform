@@ -101,6 +101,8 @@ The current embedding provider is local and deterministic. It is used to validat
 
 Chunk token counts are estimated during ingestion with `Math.ceil(content.length / 4)`. This MVP-friendly heuristic is intentionally simple and will support context budget control before the `/ask` flow sends retrieved chunks to an LLM provider.
 
+Context selection is isolated in `ContextSelectionService`. It does not query the database, resolve tenants or reorder retrieval results. It receives chunks already filtered by tenant and selected by retrieval, then applies `maxContextTokens` and `candidateLimit` using stored `tokenCount` when available. The service is implemented and tested, but the `/ask` flow has not yet been wired to it.
+
 Current implementation:
 
 ```txt
