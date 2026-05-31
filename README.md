@@ -155,6 +155,8 @@ API_KEY_PEPPER=change-me-in-local-env
 EMBEDDING_PROVIDER=local
 EMBEDDING_DIMENSIONS=8
 LLM_PROVIDER_NAME=local
+MAX_CONTEXT_TOKENS=8000
+MAX_CHUNKS_PER_QUERY=5
 ```
 
 ## Storage Decision
@@ -242,7 +244,7 @@ Each stored chunk also includes `tokenCount`, currently calculated with the MVP 
 Math.ceil(content.length / 4)
 ```
 
-This value will be used by the context budget selection flow before sending retrieved context to an LLM provider.
+This value is used by the context budget selection flow before sending retrieved context to an LLM provider.
 
 Context budget selection is implemented as an isolated service:
 
@@ -254,7 +256,7 @@ ContextSelectionService
   -> selects chunks within maxContextTokens and candidateLimit
 ```
 
-This service is prepared for the `/api/ask` flow but is not yet connected to the chat endpoint.
+This service is connected to the `/api/ask` flow. `ChatService` retrieves candidate chunks, applies context selection, and sends only selected chunks to `LlmService`.
 
 Provider adapters for OpenAI or Gemini can be added later behind the same `EmbeddingProvider` contract.
 
@@ -286,7 +288,7 @@ query text
   -> local embedding
   -> pgvector similarity search
   -> tenantId filter from API key
-  -> chunks with document source metadata
+  -> chunks with document source metadata and tokenCount
 ```
 
 The current score is pgvector L2 distance using the `<->` operator. Lower scores mean closer vectors. With the local deterministic provider, ranking validates the technical pipeline but does not yet represent production semantic quality.
@@ -317,10 +319,26 @@ Current ask behavior:
 ```txt
 question
   -> tenant-scoped retrieval
+  -> context selection
   -> LlmService
   -> local LLM provider
   -> sources
   -> usage metadata shape
+```
+
+Context selection settings:
+
+```env
+MAX_CONTEXT_TOKENS=8000
+MAX_CHUNKS_PER_QUERY=5
+```
+
+If these variables are not defined, the API uses the same default values. A client may request fewer chunks with `limit`, but cannot exceed `MAX_CHUNKS_PER_QUERY`.
+
+If no retrieved chunk fits the context budget, `/api/ask` returns a controlled response and does not call the LLM provider:
+
+```txt
+No relevant context could be selected for this request.
 ```
 
 The current implementation does not call an external LLM. `ChatService` delegates answer generation to `LlmService`, which currently uses a local provider. This keeps the `/ask` flow ready for future OpenAI or Gemini adapters without coupling the chat module directly to a specific SDK.

@@ -99,9 +99,9 @@ Document status becomes ready
 
 The current embedding provider is local and deterministic. It is used to validate the pipeline without calling OpenAI or Gemini. Real provider adapters can be added behind the same embedding provider contract.
 
-Chunk token counts are estimated during ingestion with `Math.ceil(content.length / 4)`. This MVP-friendly heuristic is intentionally simple and will support context budget control before the `/ask` flow sends retrieved chunks to an LLM provider.
+Chunk token counts are estimated during ingestion with `Math.ceil(content.length / 4)`. This MVP-friendly heuristic is intentionally simple and supports context budget control before the `/ask` flow sends retrieved chunks to an LLM provider.
 
-Context selection is isolated in `ContextSelectionService`. It does not query the database, resolve tenants or reorder retrieval results. It receives chunks already filtered by tenant and selected by retrieval, then applies `maxContextTokens` and `candidateLimit` using stored `tokenCount` when available. The service is implemented and tested, but the `/ask` flow has not yet been wired to it.
+Context selection is isolated in `ContextSelectionService`. It does not query the database, resolve tenants or reorder retrieval results. It receives chunks already filtered by tenant and selected by retrieval, then applies `maxContextTokens` and `candidateLimit` using stored `tokenCount` when available.
 
 Current implementation:
 
@@ -153,7 +153,9 @@ ApiKeyAuthGuard resolves tenantId
   |
 ChatService calls RetrievalService
   |
-Retrieved chunks become answer context
+ContextSelectionService selects chunks within budget
+  |
+Only selected chunks become answer context
   |
 ChatService calls LlmService
   |
@@ -165,6 +167,8 @@ UsageService persists usage_logs row
 ```
 
 The current ask implementation is retrieval-only and does not call an external LLM yet. LLM access is isolated behind `LlmModule`, `LlmService` and the `LLM_PROVIDER` token so future OpenAI or Gemini adapters can be added without changing controller behavior or retrieval logic.
+
+`ChatService` calculates an effective candidate limit with `Math.min(request.limit ?? MAX_CHUNKS_PER_QUERY, MAX_CHUNKS_PER_QUERY)`. It retrieves at most that many chunks, applies `ContextSelectionService`, and sends only selected chunks to the LLM provider. If no chunk fits the context budget, `ChatService` returns a controlled answer and does not call `LlmService`.
 
 The active LLM provider is selected from configuration through `LLM_PROVIDER_NAME`. The only supported value is currently `local`; unsupported values fail at startup to avoid silently running with the wrong provider.
 

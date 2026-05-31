@@ -25,6 +25,7 @@ describe('RetrievalService', () => {
         documentId: 'document_1',
         documentName: 'sample-document.txt',
         content: 'Contenido de prueba para RAG',
+        tokenCount: 7,
         score: 0.12,
       },
     ]);
@@ -48,6 +49,7 @@ describe('RetrievalService', () => {
           documentId: 'document_1',
           documentName: 'sample-document.txt',
           content: 'Contenido de prueba para RAG',
+          tokenCount: 7,
           score: 0.12,
         },
       ],

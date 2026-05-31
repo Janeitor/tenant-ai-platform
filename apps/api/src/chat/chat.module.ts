@@ -7,9 +7,10 @@ import { ChatController } from './chat.controller';
 import { ChatService } from './chat.service';
 import { UsageModule } from '../usage/usage.module';
 import { LlmModule } from '../llm/llm.module';
+import { ContextSelectionModule } from '../context/context-selection.module';
 
 @Module({
-  imports: [ApiKeysModule, AuthModule, RetrievalModule, UsageModule, LlmModule],
+  imports: [ApiKeysModule, AuthModule, RetrievalModule, UsageModule, LlmModule, ContextSelectionModule],
   controllers: [ChatController],
   providers: [ChatService],
 })

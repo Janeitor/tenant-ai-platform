@@ -9,6 +9,7 @@ export interface RetrievalResult {
   documentId: string;
   documentName: string;
   content: string;
+  tokenCount: number | null;
   score: number;
 }
 
@@ -21,6 +22,7 @@ interface RawRetrievalResult {
   documentId: string;
   documentName: string;
   content: string;
+  tokenCount: number | null;
   score: number;
 }
 
@@ -43,6 +45,7 @@ export class RetrievalService {
         dc."documentId" AS "documentId",
         d."name" AS "documentName",
         dc."content" AS "content",
+        dc."tokenCount" AS "tokenCount",
         (dc."embedding" <-> ${this.formatVector(queryEmbedding.embedding)}::vector) AS "score"
       FROM "document_chunks" dc
       INNER JOIN "documents" d ON d."id" = dc."documentId"
