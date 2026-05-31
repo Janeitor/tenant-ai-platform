@@ -88,14 +88,18 @@ ObjectStoragePort reads stored object
   |
 Text is split into overlapping chunks
   |
+Token count is estimated per chunk
+  |
 LocalEmbeddingProvider generates deterministic embeddings
   |
-document_chunks rows are stored with tenantId + documentId + embedding
+document_chunks rows are stored with tenantId + documentId + tokenCount + embedding
   |
 Document status becomes ready
 ```
 
 The current embedding provider is local and deterministic. It is used to validate the pipeline without calling OpenAI or Gemini. Real provider adapters can be added behind the same embedding provider contract.
+
+Chunk token counts are estimated during ingestion with `Math.ceil(content.length / 4)`. This MVP-friendly heuristic is intentionally simple and will support context budget control before the `/ask` flow sends retrieved chunks to an LLM provider.
 
 Current implementation:
 

@@ -63,6 +63,7 @@ model DocumentChunk {
   documentId String
   content   String
   chunkIndex Int
+  tokenCount Int?
   embedding Unsupported("vector")?
   createdAt DateTime @default(now())
 

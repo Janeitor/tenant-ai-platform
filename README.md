@@ -211,7 +211,7 @@ Uploaded files are stored in the configured S3-compatible bucket using tenant-sc
 
 The document row stores `storageKey` and uses `status = uploaded` after a successful object storage upload.
 
-Basic ingestion currently supports `text/plain` documents. The ingestion endpoint reads the stored object through the storage abstraction, extracts UTF-8 text, splits it into overlapping chunks, stores them in `document_chunks`, and updates the document to `status = ready`.
+Basic ingestion currently supports `text/plain` documents. The ingestion endpoint reads the stored object through the storage abstraction, extracts UTF-8 text, splits it into overlapping chunks, estimates a token count per chunk, stores them in `document_chunks`, and updates the document to `status = ready`.
 
 Current ingestion behavior:
 
@@ -221,6 +221,7 @@ POST /api/documents/:documentId/ingest
   -> filters document by authenticated tenantId
   -> supports text/plain only
   -> creates document_chunks
+  -> stores tokenCount using Math.ceil(content.length / 4)
   -> marks document as ready
 ```
 
@@ -234,6 +235,14 @@ EmbeddingsModule
 ```
 
 The local embedding provider is deterministic and does not call external AI APIs. It generates vectors with `EMBEDDING_DIMENSIONS=8` for development and tests. During ingestion, each text chunk receives an embedding stored in PostgreSQL using pgvector.
+
+Each stored chunk also includes `tokenCount`, currently calculated with the MVP estimate:
+
+```txt
+Math.ceil(content.length / 4)
+```
+
+This value will be used by the context budget selection flow before sending retrieved context to an LLM provider.
 
 Provider adapters for OpenAI or Gemini can be added later behind the same `EmbeddingProvider` contract.
 
