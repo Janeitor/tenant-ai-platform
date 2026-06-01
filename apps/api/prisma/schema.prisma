@@ -85,6 +85,10 @@ model UsageLog {
   outputTokens     Int?
   totalTokens      Int?
   estimatedCostUsd Decimal? @db.Decimal(12, 6)
+  contextTokens    Int?
+  selectedChunks   Int?
+  maxContextTokens Int?
+  candidateLimit   Int?
   createdAt        DateTime @default(now())
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)

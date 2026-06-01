@@ -26,6 +26,10 @@ describe('LocalLlmProvider', () => {
         outputTokens: null,
         totalTokens: null,
         estimatedCostUsd: null,
+        contextTokens: null,
+        selectedChunks: null,
+        maxContextTokens: null,
+        candidateLimit: null,
       },
     });
   });

@@ -17,6 +17,10 @@ export interface LlmUsage {
   outputTokens: number | null;
   totalTokens: number | null;
   estimatedCostUsd: number | null;
+  contextTokens: number | null;
+  selectedChunks: number | null;
+  maxContextTokens: number | null;
+  candidateLimit: number | null;
 }
 
 export interface GenerateAnswerResult {

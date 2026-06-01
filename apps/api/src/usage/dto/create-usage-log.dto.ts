@@ -34,4 +34,24 @@ export class CreateUsageLogDto {
   @IsNumber()
   @Min(0)
   estimatedCostUsd!: number | null;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  contextTokens!: number | null;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  selectedChunks!: number | null;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  maxContextTokens!: number | null;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  candidateLimit!: number | null;
 }

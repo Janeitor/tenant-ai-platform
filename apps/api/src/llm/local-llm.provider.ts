@@ -28,7 +28,7 @@ export class LocalLlmProvider implements LlmProvider {
     };
   }
 
-  private buildUsage(): LlmUsage {
+    private buildUsage(): LlmUsage {
     return {
       provider: 'local',
       model: 'retrieval-only',
@@ -36,6 +36,10 @@ export class LocalLlmProvider implements LlmProvider {
       outputTokens: null,
       totalTokens: null,
       estimatedCostUsd: null,
+      contextTokens: null,
+      selectedChunks: null,
+      maxContextTokens: null,
+      candidateLimit: null,
     };
   }
 }

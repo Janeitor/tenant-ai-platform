@@ -69,6 +69,10 @@ describe('ChatService', () => {
                 outputTokens: null,
                 totalTokens: null,
                 estimatedCostUsd: null,
+                contextTokens: 7,
+                selectedChunks: 1,
+                maxContextTokens: 8000,
+                candidateLimit: 5,
             },
         });
 
@@ -102,6 +106,10 @@ describe('ChatService', () => {
                 outputTokens: null,
                 totalTokens: null,
                 estimatedCostUsd: null,
+                contextTokens: 7,
+                selectedChunks: 1,
+                maxContextTokens: 8000,
+                candidateLimit: 5,
             },
         });
 
@@ -130,6 +138,10 @@ describe('ChatService', () => {
             outputTokens: null,
             totalTokens: null,
             estimatedCostUsd: null,
+            contextTokens: 7,
+            selectedChunks: 1,
+            maxContextTokens: 8000,
+            candidateLimit: 5,
         });
     });
 
@@ -181,6 +193,10 @@ describe('ChatService', () => {
                 outputTokens: null,
                 totalTokens: null,
                 estimatedCostUsd: null,
+                contextTokens: 0,
+                selectedChunks: 0,
+                maxContextTokens: 8000,
+                candidateLimit: 5,
             },
         });
 
@@ -199,6 +215,10 @@ describe('ChatService', () => {
             outputTokens: null,
             totalTokens: null,
             estimatedCostUsd: null,
+            contextTokens: 0,
+            selectedChunks: 0,
+            maxContextTokens: 8000,
+            candidateLimit: 5,
         });
     });
 

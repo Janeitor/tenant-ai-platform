@@ -161,7 +161,7 @@ ChatService calls LlmService
   |
 LLM_PROVIDER resolves LocalLlmProvider
   |
-Response includes answer + sources + usage shape
+Response includes answer + sources + usage shape with context metrics
   |
 UsageService persists usage_logs row
 ```
@@ -186,7 +186,7 @@ Provider selector reads LLM_PROVIDER_NAME
 LocalLlmProvider
 ```
 
-The local provider preserves the response contract expected for the final RAG API, including sources and usage metadata with token fields set to `null` until a real LLM provider is integrated.
+The local provider preserves the response contract expected for the final RAG API, including sources and usage metadata with token fields set to `null` until a real LLM provider is integrated. `ChatService` enriches the provider usage with context metrics before persisting usage.
 
 Future external LLM adapters must follow these rules:
 
@@ -223,7 +223,7 @@ UsageService
   |
 usage_logs
   |
-tenantId + provider + model + token/cost fields
+tenantId + provider + model + token/cost fields + context metrics
 ```
 
 `GET /api/usage` uses `ApiKeyAuthGuard` and reads `tenantId` from the authenticated API key. Usage logs are not queried by tenantId supplied by the client.

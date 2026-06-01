@@ -39,6 +39,10 @@ describe('UsageService', () => {
                 outputTokens: null,
                 totalTokens: null,
                 estimatedCostUsd: null,
+                contextTokens: 7,
+                selectedChunks: 1,
+                maxContextTokens: 8000,
+                candidateLimit: 5,
             }),
         ).resolves.toEqual(usageLog);
 
@@ -51,6 +55,64 @@ describe('UsageService', () => {
                 outputTokens: null,
                 totalTokens: null,
                 estimatedCostUsd: null,
+                contextTokens: 7,
+                selectedChunks: 1,
+                maxContextTokens: 8000,
+                candidateLimit: 5,
+            },
+        });
+    });
+
+        it('creates usage log with null context metrics', async () => {
+        const usageLog = {
+            id: 'usage_2',
+            tenantId: 'tenant_1',
+            provider: 'local',
+            model: 'retrieval-only',
+            inputTokens: null,
+            outputTokens: null,
+            totalTokens: null,
+            estimatedCostUsd: null,
+            contextTokens: null,
+            selectedChunks: null,
+            maxContextTokens: null,
+            candidateLimit: null,
+            createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        };
+
+        prisma.usageLog.create.mockResolvedValue(usageLog);
+
+        const service = new UsageService(prisma as never);
+
+        await expect(
+            service.createLog({
+                tenantId: 'tenant_1',
+                provider: 'local',
+                model: 'retrieval-only',
+                inputTokens: null,
+                outputTokens: null,
+                totalTokens: null,
+                estimatedCostUsd: null,
+                contextTokens: null,
+                selectedChunks: null,
+                maxContextTokens: null,
+                candidateLimit: null,
+            }),
+        ).resolves.toEqual(usageLog);
+
+        expect(prisma.usageLog.create).toHaveBeenCalledWith({
+            data: {
+                tenantId: 'tenant_1',
+                provider: 'local',
+                model: 'retrieval-only',
+                inputTokens: null,
+                outputTokens: null,
+                totalTokens: null,
+                estimatedCostUsd: null,
+                contextTokens: null,
+                selectedChunks: null,
+                maxContextTokens: null,
+                candidateLimit: null,
             },
         });
     });
@@ -217,7 +279,7 @@ describe('UsageService', () => {
             }),
         ).rejects.toThrow('Invalid date');
     });
-    
+
     it('throws RequestTimeoutException when the usage query exceeds the timeout', async () => {
         jest.useFakeTimers();
 

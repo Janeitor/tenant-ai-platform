@@ -33,7 +33,7 @@ export class ChatService {
         private readonly configService: ConfigService,
     ) { }
 
-        async ask(tenantId: string, askDto: AskDto): Promise<AskResponse> {
+    async ask(tenantId: string, askDto: AskDto): Promise<AskResponse> {
         const candidateLimit = this.getCandidateLimit(askDto.limit);
         const maxContextTokens = this.getMaxContextTokens();
 
@@ -52,14 +52,24 @@ export class ChatService {
             const response: AskResponse = {
                 answer: 'No relevant context could be selected for this request.',
                 sources: [],
-                usage: {
-                    provider: 'local',
-                    model: 'retrieval-only',
-                    inputTokens: null,
-                    outputTokens: null,
-                    totalTokens: null,
-                    estimatedCostUsd: null,
-                },
+                usage: this.buildUsageWithContextMetrics(
+                    {
+                        provider: 'local',
+                        model: 'retrieval-only',
+                        inputTokens: null,
+                        outputTokens: null,
+                        totalTokens: null,
+                        estimatedCostUsd: null,
+                        contextTokens: null,
+                        selectedChunks: null,
+                        maxContextTokens: null,
+                        candidateLimit: null,
+                    },
+                    contextSelection.contextTokens,
+                    contextSelection.selectedChunksCount,
+                    contextSelection.maxContextTokens,
+                    contextSelection.candidateLimit,
+                ),
             };
 
             await this.usageService.createLog({
@@ -87,7 +97,13 @@ export class ChatService {
                 documentName: result.documentName,
                 chunkId: result.chunkId,
             })),
-            usage: llmResult.usage,
+            usage: this.buildUsageWithContextMetrics(
+                llmResult.usage,
+                contextSelection.contextTokens,
+                contextSelection.selectedChunksCount,
+                contextSelection.maxContextTokens,
+                contextSelection.candidateLimit,
+            ),
         };
 
         await this.usageService.createLog({
@@ -97,7 +113,23 @@ export class ChatService {
 
         return response;
     }
-    
+
+    private buildUsageWithContextMetrics(
+        usage: LlmUsage,
+        contextTokens: number,
+        selectedChunks: number,
+        maxContextTokens: number,
+        candidateLimit: number,
+    ): LlmUsage {
+        return {
+            ...usage,
+            contextTokens,
+            selectedChunks,
+            maxContextTokens,
+            candidateLimit,
+        };
+    }
+
     private getMaxContextTokens(): number {
         return Number(
             this.configService.get<string>(

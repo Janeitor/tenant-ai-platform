@@ -380,14 +380,18 @@ The local provider returns an answer based on retrieved context and preserves th
     "inputTokens": null,
     "outputTokens": null,
     "totalTokens": null,
-    "estimatedCostUsd": null
+    "estimatedCostUsd": null,
+    "contextTokens": 20,
+    "selectedChunks": 2,
+    "maxContextTokens": 8000,
+    "candidateLimit": 5
   }
 }
 ```
 
-When no context is found, the endpoint states that the available documents do not contain enough information.
+When no context can be selected within the configured budget, the endpoint returns a controlled response and keeps the same usage shape.
 
-Each `/api/ask` request is persisted in `usage_logs` through `UsageModule`. Token and cost fields are currently stored as `null` because the local retrieval-only implementation does not call a provider that returns token usage.
+Each `/api/ask` request is persisted in `usage_logs` through `UsageModule`. Token and cost fields are currently stored as `null` because the local retrieval-only implementation does not call a provider that returns token usage. Context selection metrics are persisted for usage visibility.
 
 Current usage behavior:
 
@@ -398,6 +402,7 @@ POST /api/ask
   -> provider = local
   -> model = retrieval-only
   -> token fields = null
+  -> contextTokens, selectedChunks, maxContextTokens, candidateLimit
 ```
 
 Current usage visibility endpoint:
@@ -439,6 +444,10 @@ Example response:
       "outputTokens": null,
       "totalTokens": null,
       "estimatedCostUsd": null,
+      "contextTokens": 20,
+      "selectedChunks": 2,
+      "maxContextTokens": 8000,
+      "candidateLimit": 5,
       "createdAt": "2026-05-29T02:05:07.486Z"
     }
   ],
