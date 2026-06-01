@@ -1,29 +1,45 @@
 import { selectLlmProvider } from './llm-provider-selector';
 
 describe('selectLlmProvider', () => {
-  const localLlmProvider = {
-    generateAnswer: jest.fn(),
-  };
+    const localLlmProvider = {
+        generateAnswer: jest.fn(),
+    };
 
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
+    const openAiLlmProvider = {
+        generateAnswer: jest.fn(),
+    };
 
-  it('selects the local LLM provider', () => {
-    expect(
-      selectLlmProvider({
-        providerName: 'local',
-        localLlmProvider: localLlmProvider as never,
-      }),
-    ).toBe(localLlmProvider);
-  });
+    beforeEach(() => {
+        jest.clearAllMocks();
+    });
 
-  it('rejects unsupported LLM providers', () => {
-    expect(() =>
-      selectLlmProvider({
-        providerName: 'openai',
-        localLlmProvider: localLlmProvider as never,
-      }),
-    ).toThrow('Unsupported LLM provider: openai');
-  });
+    it('selects the local LLM provider', () => {
+        expect(
+            selectLlmProvider({
+                providerName: 'local',
+                localLlmProvider: localLlmProvider as never,
+                openAiLlmProvider: openAiLlmProvider as never,
+            }),
+        ).toBe(localLlmProvider);
+    });
+
+    it('selects the OpenAI LLM provider', () => {
+        expect(
+            selectLlmProvider({
+                providerName: 'openai',
+                localLlmProvider: localLlmProvider as never,
+                openAiLlmProvider: openAiLlmProvider as never,
+            }),
+        ).toBe(openAiLlmProvider);
+    });
+
+    it('rejects unsupported LLM providers', () => {
+        expect(() =>
+            selectLlmProvider({
+                providerName: 'gemini',
+                localLlmProvider: localLlmProvider as never,
+                openAiLlmProvider: openAiLlmProvider as never,
+            }),
+        ).toThrow('Unsupported LLM provider: gemini');
+    });
 });

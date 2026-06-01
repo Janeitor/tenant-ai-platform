@@ -159,18 +159,27 @@ Only selected chunks become answer context
   |
 ChatService calls LlmService
   |
-LLM_PROVIDER resolves LocalLlmProvider
+LLM_PROVIDER resolves LocalLlmProvider or OpenAiLlmProvider
   |
 Response includes answer + sources + usage shape with context metrics
   |
 UsageService persists usage_logs row
 ```
 
-The current ask implementation is retrieval-only and does not call an external LLM yet. LLM access is isolated behind `LlmModule`, `LlmService` and the `LLM_PROVIDER` token so future OpenAI or Gemini adapters can be added without changing controller behavior or retrieval logic.
+The default ask implementation uses the local provider, which keeps development deterministic and avoids external API cost. OpenAI is also implemented as an optional provider behind the same `LlmProvider` contract. LLM access is isolated behind `LlmModule`, `LlmService` and the `LLM_PROVIDER` token so provider changes do not require changes in controller behavior or retrieval logic.
 
 `ChatService` calculates an effective candidate limit with `Math.min(request.limit ?? MAX_CHUNKS_PER_QUERY, MAX_CHUNKS_PER_QUERY)`. It retrieves at most that many chunks, applies `ContextSelectionService`, and sends only selected chunks to the LLM provider. If no chunk fits the context budget, `ChatService` returns a controlled answer and does not call `LlmService`.
 
-The active LLM provider is selected from configuration through `LLM_PROVIDER_NAME`. The only supported value is currently `local`; unsupported values fail at startup to avoid silently running with the wrong provider.
+The active LLM provider is selected from configuration through `LLM_PROVIDER_NAME`.
+
+Supported values:
+
+```txt
+local
+openai
+```
+
+Unsupported values fail at startup to avoid silently running with the wrong provider.
 
 Current LLM implementation:
 
@@ -183,12 +192,16 @@ LLM_PROVIDER token
   |
 Provider selector reads LLM_PROVIDER_NAME
   |
-LocalLlmProvider
+LocalLlmProvider or OpenAiLlmProvider
 ```
 
 The local provider preserves the response contract expected for the final RAG API, including sources and usage metadata with token fields set to `null` until a real LLM provider is integrated. `ChatService` enriches the provider usage with context metrics before persisting usage.
 
-Future external LLM adapters must follow these rules:
+The OpenAI provider uses the official OpenAI SDK and Responses API. It receives only the selected context chunks prepared by `ChatService`, builds the final model input from retrieved context plus the user question, and maps provider usage fields into the shared usage contract when available.
+
+`OpenAiLlmProvider` performs a final defensive validation before calling the external API. It rejects empty questions or empty context locally, so invalid requests do not consume external LLM tokens.
+
+External LLM adapters must follow these rules:
 
 - The adapter must not resolve or accept `tenantId`.
 - The adapter must not query Prisma or retrieve documents.
@@ -198,7 +211,7 @@ Future external LLM adapters must follow these rules:
 - The adapter must return a consistent usage object, using `null` for token or cost values unavailable from the provider.
 - Automated tests must mock external providers and must not call real OpenAI or Gemini APIs.
 
-Future provider flow:
+Provider flow:
 
 ```txt
 ChatService
@@ -207,7 +220,7 @@ LlmService
   |
 LLM_PROVIDER
   |
-OpenAiLlmProvider or GeminiLlmProvider
+LocalLlmProvider, OpenAiLlmProvider or future GeminiLlmProvider
   |
 answer + usage
 ```
@@ -302,11 +315,14 @@ BullMQ + Redis are used for:
 
 ## AI Providers
 
-Supported providers:
+Implemented LLM providers:
+- local
 - OpenAI
+
+Planned provider:
 - Gemini
 
-The provider layer must be abstracted.
+The provider layer must remain abstracted. Automated tests mock external providers and must not call real OpenAI or Gemini APIs.
 
 ---
 

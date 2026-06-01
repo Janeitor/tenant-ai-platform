@@ -157,6 +157,10 @@ EMBEDDING_DIMENSIONS=8
 LLM_PROVIDER_NAME=local
 MAX_CONTEXT_TOKENS=8000
 MAX_CHUNKS_PER_QUERY=5
+OPENAI_API_KEY=
+OPENAI_MODEL=gpt-5-mini
+OPENAI_EMBEDDING_MODEL=text-embedding-3-small
+GEMINI_API_KEY=
 ```
 
 ## Storage Decision
@@ -341,7 +345,7 @@ If no retrieved chunk fits the context budget, `/api/ask` returns a controlled r
 No relevant context could be selected for this request.
 ```
 
-The current implementation does not call an external LLM. `ChatService` delegates answer generation to `LlmService`, which currently uses a local provider. This keeps the `/ask` flow ready for future OpenAI or Gemini adapters without coupling the chat module directly to a specific SDK.
+`ChatService` delegates answer generation to `LlmService`. The default development provider is local, so the `/ask` flow can run without external API keys or API cost. The project also includes an OpenAI LLM provider behind the same provider contract, so the active provider can be changed through environment configuration without coupling the chat module directly to the OpenAI SDK.
 
 The active LLM provider is selected with:
 
@@ -349,9 +353,28 @@ The active LLM provider is selected with:
 LLM_PROVIDER_NAME=local
 ```
 
-Only `local` is currently supported. Unsupported values fail at application startup with a clear error so invalid provider configuration is detected early.
+Supported values:
 
-Future OpenAI or Gemini providers should be added behind the existing `LlmProvider` contract. External provider adapters must receive only tenant-filtered context from retrieval and must not query documents or resolve tenant ownership themselves.
+```txt
+local
+openai
+```
+
+Unsupported values fail at application startup with a clear error so invalid provider configuration is detected early.
+
+The OpenAI provider uses the official OpenAI SDK and the Responses API. To enable it locally, configure:
+
+```env
+LLM_PROVIDER_NAME=openai
+OPENAI_API_KEY=your-api-key
+OPENAI_MODEL=gpt-5-mini
+```
+
+`OPENAI_API_KEY` is required only when the OpenAI provider is actually used. Keeping `LLM_PROVIDER_NAME=local` allows development and automated tests to run without real OpenAI calls.
+
+The OpenAI provider validates that the request contains a non-empty question and at least one non-empty retrieved context before calling the OpenAI API. This avoids unnecessary external calls and token usage when the RAG flow has no usable context.
+
+Future Gemini providers should be added behind the existing `LlmProvider` contract. External provider adapters must receive only tenant-filtered context from retrieval and must not query documents or resolve tenant ownership themselves.
 
 Current LLM abstraction:
 
@@ -359,7 +382,7 @@ Current LLM abstraction:
 ChatService
   -> LlmService
   -> LLM_PROVIDER token
-  -> LocalLlmProvider
+  -> LocalLlmProvider or OpenAiLlmProvider
 ```
 
 The local provider returns an answer based on retrieved context and preserves the final response shape expected by the product:
@@ -390,6 +413,8 @@ The local provider returns an answer based on retrieved context and preserves th
 ```
 
 When no context can be selected within the configured budget, the endpoint returns a controlled response and keeps the same usage shape.
+
+Automated tests mock external LLM providers. They must not call real OpenAI or Gemini APIs.
 
 Each `/api/ask` request is persisted in `usage_logs` through `UsageModule`. Token and cost fields are currently stored as `null` because the local retrieval-only implementation does not call a provider that returns token usage. Context selection metrics are persisted for usage visibility.
 
