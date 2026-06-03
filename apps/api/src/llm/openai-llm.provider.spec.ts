@@ -33,10 +33,8 @@ describe('OpenAiLlmProvider', () => {
             },
         });
 
-        const provider = new OpenAiLlmProvider(
-            configService as never,
-            openAiClient as never,
-        );
+        const provider = new OpenAiLlmProvider(configService as never);
+        provider.setClientForTesting(openAiClient as never);
 
         await expect(
             provider.generateAnswer({
@@ -87,10 +85,8 @@ describe('OpenAiLlmProvider', () => {
             usage: null,
         });
 
-        const provider = new OpenAiLlmProvider(
-            configService as never,
-            openAiClient as never,
-        );
+        const provider = new OpenAiLlmProvider(configService as never);
+        provider.setClientForTesting(openAiClient as never);
 
         await provider.generateAnswer({
             question: 'Pregunta',
@@ -114,10 +110,8 @@ describe('OpenAiLlmProvider', () => {
     it('throws a controlled error when OpenAI request fails', async () => {
         openAiClient.responses.create.mockRejectedValue(new Error('API error'));
 
-        const provider = new OpenAiLlmProvider(
-            configService as never,
-            openAiClient as never,
-        );
+        const provider = new OpenAiLlmProvider(configService as never);
+        provider.setClientForTesting(openAiClient as never);
 
         await expect(
             provider.generateAnswer({
@@ -166,10 +160,8 @@ describe('OpenAiLlmProvider', () => {
     });
 
     it('does not call OpenAI when no context content is available', async () => {
-        const provider = new OpenAiLlmProvider(
-            configService as never,
-            openAiClient as never,
-        );
+        const provider = new OpenAiLlmProvider(configService as never);
+        provider.setClientForTesting(openAiClient as never);
 
         await expect(
             provider.generateAnswer({

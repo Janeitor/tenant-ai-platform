@@ -52,6 +52,36 @@ Modules:
 
 ---
 
+## Customer integration demo
+
+The repository includes `apps/client-demo`, a sample customer application used to demonstrate API-first integration.
+
+Although it lives in the same monorepo for the TFM demo, it is treated architecturally as an external customer system:
+
+- it does not import backend services from `apps/api`
+- it does not access Prisma or the database
+- it does not know the tenantId
+- it calls Tenant AI through HTTP
+- it keeps the tenant API key in server-side environment variables
+
+The integration flow is:
+
+```txt
+Customer browser
+  |
+Client demo page
+  |
+Client demo server route
+  |
+Tenant AI API /api/ask with x-api-key
+  |
+Tenant-scoped RAG response
+```
+
+This mirrors how a real customer backend can consume Tenant AI while keeping the tenant API key out of the browser.
+
+---
+
 ## Multi-tenancy strategy
 
 Tenant isolation is enforced at database and application level.
@@ -97,7 +127,20 @@ document_chunks rows are stored with tenantId + documentId + tokenCount + embedd
 Document status becomes ready
 ```
 
-The current embedding provider is local and deterministic. It is used to validate the pipeline without calling OpenAI or Gemini. Real provider adapters can be added behind the same embedding provider contract.
+The default embedding provider is local and deterministic. It is used to validate the pipeline without calling OpenAI or Gemini. OpenAI embeddings are implemented as an optional provider behind the same embedding provider contract.
+
+The database embedding column is configured as `vector(1536)`. This aligns local development with the planned OpenAI embedding model `text-embedding-3-small`, whose default embedding size is 1536 dimensions.
+
+Changing embedding dimensions invalidates previously generated embeddings. Development chunks created with the earlier 8-dimensional local provider were considered disposable and must be regenerated instead of migrated semantically.
+
+Changing embedding providers also requires reingestion of documents so stored vectors are generated consistently by the same provider/model/dimension combination.
+
+Before `IngestionService` persists a chunk embedding, it validates two conditions:
+
+- the returned vector length matches the provider-reported dimension
+- the provider-reported dimension matches `EMBEDDING_DIMENSIONS`
+
+This protects the pgvector column from receiving vectors that do not match the configured `vector(1536)` storage dimension.
 
 Chunk token counts are estimated during ingestion with `Math.ceil(content.length / 4)`. This MVP-friendly heuristic is intentionally simple and supports context budget control before the `/ask` flow sends retrieved chunks to an LLM provider.
 
@@ -112,10 +155,16 @@ EmbeddingsService
   |
 EMBEDDING_PROVIDER token
   |
-LocalEmbeddingProvider
+Provider selector reads EMBEDDING_PROVIDER
   |
-pgvector embedding column on document_chunks
+LocalEmbeddingProvider or OpenAiEmbeddingProvider
+  |
+pgvector embedding column on document_chunks using vector(1536)
 ```
+
+The OpenAI embedding provider uses the official OpenAI SDK, `OPENAI_EMBEDDING_MODEL` and `EMBEDDING_DIMENSIONS`. It does not know about tenants, documents or Prisma. It only receives text and returns an embedding result.
+
+When `EMBEDDING_PROVIDER=openai`, ingestion uses OpenAI to generate chunk embeddings, and retrieval uses OpenAI to generate the query embedding. This means `/ask` consumes embedding API quota even when the answer provider remains local.
 
 ### Question answering
 
@@ -142,7 +191,11 @@ WHERE document_chunks.tenantId = authenticated tenantId
 Return chunk content + document source metadata
 ```
 
-The current vector score uses pgvector L2 distance through the `<->` operator. Lower scores represent closer vectors. Because the current embedding provider is local and deterministic, retrieval validates architecture and tenant filtering before external embedding providers are introduced.
+Retrieval uses pgvector cosine distance through the `<=>` operator and exposes `similarity = 1 - cosine_distance` in API responses. Higher similarity values represent more relevant chunks.
+
+Retrieval can optionally apply `MIN_RETRIEVAL_SIMILARITY` to discard weak matches before they are returned or sent to `/ask`. When the value is empty, retrieval keeps the current behavior and does not apply a threshold. When configured, chunks with similarity below the threshold are discarded.
+
+If retrieval returns no chunks after threshold filtering, the `/ask` flow does not call the LLM provider. `ChatService` returns a controlled insufficient-context response with empty sources and usage metadata showing zero selected chunks.
 
 Current ask phase:
 
@@ -201,6 +254,28 @@ The OpenAI provider uses the official OpenAI SDK and Responses API. It receives 
 
 `OpenAiLlmProvider` performs a final defensive validation before calling the external API. It rejects empty questions or empty context locally, so invalid requests do not consume external LLM tokens.
 
+The full OpenAI-backed RAG flow is:
+
+```txt
+POST /api/ask
+  |
+ApiKeyAuthGuard resolves tenantId
+  |
+OpenAiEmbeddingProvider embeds the question
+  |
+RetrievalService searches tenant-filtered pgvector chunks
+  |
+ContextSelectionService limits selected context
+  |
+OpenAiLlmProvider generates the answer
+  |
+ChatService returns answer + sources + usage
+  |
+UsageService persists token and context metrics
+```
+
+Local providers remain available for development and tests to avoid external API cost.
+
 External LLM adapters must follow these rules:
 
 - The adapter must not resolve or accept `tenantId`.
@@ -238,6 +313,8 @@ usage_logs
   |
 tenantId + provider + model + token/cost fields + context metrics
 ```
+
+When the local LLM provider is active, token fields are persisted as `null`. When the OpenAI LLM provider is active, OpenAI token usage is mapped into `inputTokens`, `outputTokens` and `totalTokens` when returned by the provider. `estimatedCostUsd` remains nullable and is reserved for a future pricing calculation layer.
 
 `GET /api/usage` uses `ApiKeyAuthGuard` and reads `tenantId` from the authenticated API key. Usage logs are not queried by tenantId supplied by the client.
 

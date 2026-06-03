@@ -23,16 +23,21 @@ describe('IngestionService', () => {
     generateEmbedding: jest.fn(),
   };
 
+  const configService = {
+    getOrThrow: jest.fn(),
+  };
+
   beforeEach(() => {
+    configService.getOrThrow.mockReturnValue('1536');
     jest.clearAllMocks();
     prisma.document.update.mockResolvedValue({});
     prisma.documentChunk.deleteMany.mockResolvedValue({ count: 0 });
     prisma.$executeRaw.mockResolvedValue(1);
     embeddingsService.generateEmbedding.mockResolvedValue({
-      embedding: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8],
-      dimensions: 8,
+      embedding: Array.from({ length: 1536 }, () => 0.1),
+      dimensions: 1536,
       provider: 'local',
-      model: 'local-deterministic-8',
+      model: 'local-deterministic-1536',
     });
   });
 
@@ -54,6 +59,7 @@ describe('IngestionService', () => {
       prisma as never,
       objectStorage as never,
       embeddingsService as never,
+      configService as never,
     );
 
     await expect(
@@ -105,6 +111,7 @@ describe('IngestionService', () => {
       prisma as never,
       objectStorage as never,
       embeddingsService as never,
+      configService as never,
     );
 
     await expect(
@@ -127,6 +134,7 @@ describe('IngestionService', () => {
       prisma as never,
       objectStorage as never,
       embeddingsService as never,
+      configService as never,
     );
 
     await expect(
@@ -146,10 +154,83 @@ describe('IngestionService', () => {
       prisma as never,
       objectStorage as never,
       embeddingsService as never,
+      configService as never,
     );
 
     await expect(
       service.ingestDocument('tenant_1', 'document_1'),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('rejects embeddings when reported dimensions do not match vector length', async () => {
+    prisma.document.findFirst.mockResolvedValue({
+      id: 'document_1',
+      tenantId: 'tenant_1',
+      mimeType: 'text/plain',
+      storageKey: 'tenant_1/documents/document_1.txt',
+    });
+
+    objectStorage.getObject.mockResolvedValue({
+      key: 'tenant_1/documents/document_1.txt',
+      body: Buffer.from('Hello world.'),
+      contentType: 'text/plain',
+    });
+
+    embeddingsService.generateEmbedding.mockResolvedValue({
+      embedding: [0.1, 0.2, 0.3],
+      dimensions: 1536,
+      provider: 'local',
+      model: 'local-deterministic-1536',
+    });
+
+    const service = new IngestionService(
+      prisma as never,
+      objectStorage as never,
+      embeddingsService as never,
+      configService as never,
+    );
+
+    await expect(
+      service.ingestDocument('tenant_1', 'document_1'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(prisma.$executeRaw).not.toHaveBeenCalled();
+  });
+
+  it('rejects embeddings when dimensions do not match configured dimensions', async () => {
+    configService.getOrThrow.mockReturnValue('1536');
+
+    prisma.document.findFirst.mockResolvedValue({
+      id: 'document_1',
+      tenantId: 'tenant_1',
+      mimeType: 'text/plain',
+      storageKey: 'tenant_1/documents/document_1.txt',
+    });
+
+    objectStorage.getObject.mockResolvedValue({
+      key: 'tenant_1/documents/document_1.txt',
+      body: Buffer.from('Hello world.'),
+      contentType: 'text/plain',
+    });
+
+    embeddingsService.generateEmbedding.mockResolvedValue({
+      embedding: Array.from({ length: 256 }, () => 0.1),
+      dimensions: 256,
+      provider: 'openai',
+      model: 'text-embedding-3-small',
+    });
+
+    const service = new IngestionService(
+      prisma as never,
+      objectStorage as never,
+      embeddingsService as never,
+      configService as never,
+    );
+
+    await expect(
+      service.ingestDocument('tenant_1', 'document_1'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(prisma.$executeRaw).not.toHaveBeenCalled();
   });
 });

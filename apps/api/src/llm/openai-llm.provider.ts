@@ -19,12 +19,12 @@ export class OpenAiLlmProvider implements LlmProvider {
     private readonly model: string;
     private client?: OpenAI;
 
-    constructor(
-        private readonly configService: ConfigService,
-        client?: OpenAI,
-    ) {
-        this.client = client;
+    constructor(private readonly configService: ConfigService) {
         this.model = configService.get<string>('OPENAI_MODEL', 'gpt-5-mini');
+    }
+
+    setClientForTesting(client: OpenAI): void {
+        this.client = client;
     }
 
     async generateAnswer(

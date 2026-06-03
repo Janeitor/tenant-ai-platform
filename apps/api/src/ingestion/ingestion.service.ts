@@ -10,6 +10,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { OBJECT_STORAGE } from '../storage/object-storage.service';
 import { type ObjectStoragePort } from '../storage/object-storage.types';
 import { estimateTokenCount } from './token-count';
+import { ConfigService } from '@nestjs/config';
 
 export interface IngestDocumentResult {
     documentId: string;
@@ -21,13 +22,19 @@ export interface IngestDocumentResult {
 export class IngestionService {
     private readonly chunkSize = 1000;
     private readonly chunkOverlap = 150;
+    private readonly expectedEmbeddingDimensions: number;
 
     constructor(
         private readonly prisma: PrismaService,
         @Inject(OBJECT_STORAGE)
         private readonly objectStorage: ObjectStoragePort,
         private readonly embeddingsService: EmbeddingsService,
-    ) { }
+        configService: ConfigService,
+    ) {
+        this.expectedEmbeddingDimensions = Number(
+            configService.getOrThrow<string>('EMBEDDING_DIMENSIONS'),
+        );
+    }
 
     async ingestDocument(
         tenantId: string,
@@ -79,6 +86,8 @@ export class IngestionService {
             const embedding = await this.embeddingsService.generateEmbedding(chunk);
             const tokenCount = estimateTokenCount(chunk);
 
+            this.validateEmbeddingDimensions(embedding.embedding, embedding.dimensions);
+
             await this.prisma.$executeRaw`
         INSERT INTO "document_chunks" (
           "id",
@@ -97,7 +106,7 @@ export class IngestionService {
           ${chunk},
           ${index},
           ${tokenCount},
-          ${this.formatVector(embedding.embedding)}::vector,
+          CAST(${this.formatVector(embedding.embedding)} AS vector),
           now()
         )
       `;
@@ -141,6 +150,24 @@ export class IngestionService {
         }
 
         return chunks;
+    }
+
+
+    private validateEmbeddingDimensions(
+        embedding: number[],
+        reportedDimensions: number,
+    ): void {
+        if (embedding.length !== reportedDimensions) {
+            throw new BadRequestException(
+                'Embedding dimensions do not match returned vector length',
+            );
+        }
+
+        if (reportedDimensions !== this.expectedEmbeddingDimensions) {
+            throw new BadRequestException(
+                `Embedding dimensions must be ${this.expectedEmbeddingDimensions}`,
+            );
+        }
     }
 
     private formatVector(embedding: number[]): string {

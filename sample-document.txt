@@ -1,1 +1,3 @@
 Contenido de prueba para RAG
+La idea es tener un archivo de prueba que permita identificar el funcionamiento de la aplicación.
+
