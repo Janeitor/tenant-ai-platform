@@ -37,3 +37,6 @@ apps/api/generated/
 # Docker / local volumes
 .docker/
 docker-data/
+
+# Local demo/test documents
+demo-files/
