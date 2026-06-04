@@ -15,6 +15,7 @@ Railway
 
 Cloudflare
   -> R2 object storage for uploaded documents
+  -> Workers deployment for the customer demo app
 
 OpenAI
   -> text embeddings
@@ -170,6 +171,68 @@ MAX_CHUNKS_PER_QUERY=5
 
 The OpenAI API key must be created in OpenAI Platform. A ChatGPT Plus subscription alone is not enough to use the API.
 
+## Cloudflare Workers Client Demo
+
+The customer demo app is deployed to Cloudflare Workers using OpenNext for Cloudflare.
+
+This is required because the demo is not a purely static site. It includes a server-side Next.js route:
+
+```txt
+apps/client-demo/src/app/api/ask/route.ts
+```
+
+That route keeps the tenant API key out of the browser and forwards questions to the Railway API with:
+
+```txt
+x-api-key: tai_...
+```
+
+Implemented files:
+
+```txt
+apps/client-demo/open-next.config.ts
+apps/client-demo/wrangler.jsonc
+```
+
+Client demo build scripts:
+
+```txt
+npm run build:cloudflare --workspace @tenant-ai/client-demo
+npm run preview:cloudflare --workspace @tenant-ai/client-demo
+npm run deploy:cloudflare --workspace @tenant-ai/client-demo
+```
+
+Cloudflare Worker deployment settings:
+
+```txt
+Repository: Janeitor/tenant-ai-platform
+Path: /
+Build command: npm run build:cloudflare --workspace @tenant-ai/client-demo
+Deploy command: npx wrangler deploy --config apps/client-demo/wrangler.jsonc
+```
+
+Runtime variables:
+
+```env
+TENANT_AI_API_URL=https://<railway-domain>/api
+TENANT_AI_API_KEY=<tenant-api-key>
+```
+
+Security requirement:
+
+```txt
+TENANT_AI_API_KEY must be configured as a Cloudflare secret.
+TENANT_AI_API_URL may be plaintext.
+```
+
+Validated public demo URL pattern:
+
+```txt
+https://<worker-name>.<cloudflare-account>.workers.dev
+```
+
+The deployed demo was validated by asking a question from the notary-style intranet UI and receiving an answer from the Railway API using tenant-scoped document retrieval.
+
 ## Required Railway API Variables
 
 The API service requires:
@@ -219,6 +282,8 @@ The following flow was validated in the cloud environment:
 12. Vectors stored in PostgreSQL pgvector
 13. /api/ask answered using retrieved tenant context
 14. /api/usage returned persisted usage logs
+15. Cloudflare Worker client demo called the Railway API through a server-side route
+16. Tenant API key remained configured as a Cloudflare secret
 ```
 
 Example validation commands:
@@ -302,6 +367,7 @@ Railway service setup
 Cloudflare R2 bucket setup
 R2 API token creation
 Railway variable configuration
+Cloudflare Worker variable/secret configuration
 Prisma migrations from local terminal using DATABASE_PUBLIC_URL
 ```
 
@@ -326,7 +392,7 @@ Prisma deployment
 
 Terraform
   -> manage Cloudflare R2 bucket
-  -> manage Cloudflare Pages project if practical
+  -> manage Cloudflare Worker resources if practical
   -> document provider variables and remote state decision
 ```
 

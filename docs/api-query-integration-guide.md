@@ -192,6 +192,27 @@ apps/client-demo /api/ask server route
 Tenant AI API /api/ask with x-api-key
 ```
 
+The public cloud demo is deployed as a Cloudflare Worker through OpenNext. This keeps the same security model as the local Next.js version:
+
+```txt
+Browser
+  |
+Cloudflare Worker frontend
+  |
+Cloudflare Worker /api/ask server route
+  |
+Tenant AI Railway API with x-api-key
+```
+
+Runtime configuration:
+
+```env
+TENANT_AI_API_URL=https://<railway-domain>/api
+TENANT_AI_API_KEY=tai_your_tenant_api_key
+```
+
+`TENANT_AI_API_KEY` must be stored as a Cloudflare secret. It must not be exposed as client-side JavaScript or committed to the repository.
+
 ## Running The Client Demo Locally
 
 Create:

@@ -121,6 +121,8 @@ and forwards the request to the Tenant AI API with:
 x-api-key: tai_...
 ```
 
+The cloud version is deployed as a Cloudflare Worker using OpenNext, preserving the same server-side API key handling.
+
 Run locally:
 
 ```bash
