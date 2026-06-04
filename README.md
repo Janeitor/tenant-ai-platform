@@ -139,6 +139,12 @@ For customer integration details, see:
 docs/api-query-integration-guide.md
 ```
 
+For the validated MVP cloud deployment, see:
+
+```txt
+docs/cloud-deployment.md
+```
+
 ## Demo Flow
 
 This flow demonstrates the current end-to-end product locally.
