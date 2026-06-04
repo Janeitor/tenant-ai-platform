@@ -45,9 +45,24 @@ export async function POST(request: Request): Promise<NextResponse> {
     }),
   });
 
-  const data = (await response.json()) as unknown;
+  const responseText = await response.text();
+  const data = parseJsonResponse(responseText, {
+    message: 'Tenant AI API returned an empty response',
+  });
 
   return NextResponse.json(data, {
     status: response.status,
   });
+}
+
+function parseJsonResponse(responseText: string, fallback: unknown): unknown {
+  if (!responseText) {
+    return fallback;
+  }
+
+  try {
+    return JSON.parse(responseText) as unknown;
+  } catch {
+    return fallback;
+  }
 }

@@ -50,7 +50,10 @@ export default function Home() {
         }),
       });
 
-      const data = (await result.json()) as unknown;
+      const responseText = await result.text();
+      const data = parseJsonResponse(responseText, {
+        message: 'No fue posible obtener una respuesta de la base documental.',
+      });
 
       if (!result.ok) {
         const message =
@@ -210,4 +213,16 @@ export default function Home() {
       </section>
     </main>
   );
+}
+
+function parseJsonResponse(responseText: string, fallback: unknown): unknown {
+  if (!responseText) {
+    return fallback;
+  }
+
+  try {
+    return JSON.parse(responseText) as unknown;
+  } catch {
+    return fallback;
+  }
 }
