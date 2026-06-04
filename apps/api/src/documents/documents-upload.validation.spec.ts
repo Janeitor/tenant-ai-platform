@@ -4,13 +4,14 @@ import {
 } from './documents-upload.validation';
 
 describe('document upload validation', () => {
-  it('allows plain text documents for the current ingestion pipeline', () => {
+  it('allows supported document MIME types', () => {
     expect(isAllowedDocumentMimeType('text/plain')).toBe(true);
+    expect(isAllowedDocumentMimeType('application/pdf')).toBe(true);
   });
 
   it('rejects MIME types that are not supported yet', () => {
-    expect(isAllowedDocumentMimeType('application/pdf')).toBe(false);
     expect(isAllowedDocumentMimeType('image/png')).toBe(false);
+    expect(isAllowedDocumentMimeType('application/vnd.openxmlformats-officedocument.wordprocessingml.document')).toBe(false);
   });
 
   it('uses a bounded upload size', () => {

@@ -170,7 +170,7 @@ Every retrieval query filters by the authenticated tenant. A tenant API key can 
 
 ## Client Demo Application
 
-This repository includes `apps/client-demo`, a sample customer application that demonstrates the recommended integration pattern.
+This repository includes `apps/client-demo`, a sample customer application that demonstrates the recommended integration pattern. The current UI simulates a notary intranet where an internal user can ask questions over tenant documents without seeing implementation details such as API keys, token usage or retrieval metadata.
 
 It behaves like an external customer application:
 
@@ -226,4 +226,3 @@ http://localhost:3001
 ```
 
 Ask a question about the tenant documents. The client demo will call its own server route, which forwards the request to Tenant AI using the tenant API key.
-

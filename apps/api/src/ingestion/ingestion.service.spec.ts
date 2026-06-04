@@ -23,6 +23,10 @@ describe('IngestionService', () => {
     generateEmbedding: jest.fn(),
   };
 
+  const documentTextExtractor = {
+    extractText: jest.fn(),
+  };
+
   const configService = {
     getOrThrow: jest.fn(),
   };
@@ -40,6 +44,10 @@ describe('IngestionService', () => {
       model: 'local-deterministic-1536',
     });
   });
+
+  documentTextExtractor.extractText.mockResolvedValue(
+    'Hello world. This is a test document.',
+  );
 
   it('ingests a text document into embedded chunks for the authenticated tenant', async () => {
     prisma.document.findFirst.mockResolvedValue({
@@ -59,6 +67,7 @@ describe('IngestionService', () => {
       prisma as never,
       objectStorage as never,
       embeddingsService as never,
+      documentTextExtractor as never,
       configService as never,
     );
 
@@ -79,6 +88,11 @@ describe('IngestionService', () => {
 
     expect(objectStorage.getObject).toHaveBeenCalledWith({
       key: 'tenant_1/documents/document_1.txt',
+    });
+
+    expect(documentTextExtractor.extractText).toHaveBeenCalledWith({
+      body: Buffer.from('Hello world. This is a test document.'),
+      mimeType: 'text/plain',
     });
 
     expect(prisma.documentChunk.deleteMany).toHaveBeenCalledWith({
@@ -111,6 +125,7 @@ describe('IngestionService', () => {
       prisma as never,
       objectStorage as never,
       embeddingsService as never,
+      documentTextExtractor as never,
       configService as never,
     );
 
@@ -134,6 +149,7 @@ describe('IngestionService', () => {
       prisma as never,
       objectStorage as never,
       embeddingsService as never,
+      documentTextExtractor as never,
       configService as never,
     );
 
@@ -146,14 +162,25 @@ describe('IngestionService', () => {
     prisma.document.findFirst.mockResolvedValue({
       id: 'document_1',
       tenantId: 'tenant_1',
-      mimeType: 'application/pdf',
-      storageKey: 'tenant_1/documents/document_1.pdf',
+      mimeType: 'image/png',
+      storageKey: 'tenant_1/documents/document_1.png',
     });
+
+    objectStorage.getObject.mockResolvedValue({
+      key: 'tenant_1/documents/document_1.png',
+      body: Buffer.from('image bytes'),
+      contentType: 'image/png',
+    });
+
+    documentTextExtractor.extractText.mockRejectedValue(
+      new BadRequestException('Unsupported document MIME type for ingestion'),
+    );
 
     const service = new IngestionService(
       prisma as never,
       objectStorage as never,
       embeddingsService as never,
+      documentTextExtractor as never,
       configService as never,
     );
 
@@ -187,6 +214,7 @@ describe('IngestionService', () => {
       prisma as never,
       objectStorage as never,
       embeddingsService as never,
+      documentTextExtractor as never,
       configService as never,
     );
 
@@ -224,6 +252,7 @@ describe('IngestionService', () => {
       prisma as never,
       objectStorage as never,
       embeddingsService as never,
+      documentTextExtractor as never,
       configService as never,
     );
 

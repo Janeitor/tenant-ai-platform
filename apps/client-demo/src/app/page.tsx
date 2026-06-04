@@ -8,44 +8,36 @@ interface AskSource {
   chunkId: string;
 }
 
-interface AskUsage {
-  provider: string;
-  model: string;
-  inputTokens: number | null;
-  outputTokens: number | null;
-  totalTokens: number | null;
-  estimatedCostUsd: number | null;
-  contextTokens: number | null;
-  selectedChunks: number | null;
-  maxContextTokens: number | null;
-  candidateLimit: number | null;
-}
-
 interface AskResponse {
   answer: string;
   sources: AskSource[];
-  usage: AskUsage;
 }
 
+const suggestedQuestions = [
+  'Que documentos necesito para firmar una compraventa?',
+  'Cuales son los requisitos para un poder notarial?',
+  'Indicame la cobertura por maternidad del seguro complementario',
+];
+
 export default function Home() {
-  const [question, setQuestion] = useState('A quien visita Caperucita Roja?');
+  const [question, setQuestion] = useState('');
+  const [submittedQuestion, setSubmittedQuestion] = useState<string | null>(null);
   const [response, setResponse] = useState<AskResponse | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  async function handleAsk(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    const trimmedQuestion = question.trim();
+  async function askQuestion(nextQuestion: string) {
+    const trimmedQuestion = nextQuestion.trim();
 
     if (!trimmedQuestion) {
-      setErrorMessage('Write a question before asking.');
+      setErrorMessage('Escribe una consulta antes de enviar.');
       return;
     }
 
     setIsLoading(true);
     setErrorMessage(null);
     setResponse(null);
+    setSubmittedQuestion(trimmedQuestion);
 
     try {
       const result = await fetch('/api/ask', {
@@ -67,7 +59,7 @@ export default function Home() {
           'message' in data &&
           typeof data.message === 'string'
             ? data.message
-            : 'Tenant AI API request failed';
+            : 'No fue posible consultar la base documental.';
 
         throw new Error(message);
       }
@@ -75,102 +67,143 @@ export default function Home() {
       setResponse(data as AskResponse);
     } catch (error) {
       setErrorMessage(
-        error instanceof Error ? error.message : 'Unexpected request error',
+        error instanceof Error ? error.message : 'Error inesperado al consultar.',
       );
     } finally {
       setIsLoading(false);
     }
   }
 
+  async function handleAsk(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await askQuestion(question);
+  }
+
+  async function handleSuggestionClick(nextQuestion: string) {
+    setQuestion(nextQuestion);
+    await askQuestion(nextQuestion);
+  }
+
   return (
-    <main className="shell">
-      <section className="workspace">
-        <header className="topbar">
+    <main className="intranet-shell">
+      <aside className="sidebar" aria-label="Secciones internas">
+        <div className="brand">
+          <span className="brand-mark">NSM</span>
           <div>
-            <p className="eyebrow">Demo Company</p>
-            <h1>Knowledge Assistant</h1>
+            <strong>Notaria San Martin</strong>
+            <span>Portal interno</span>
           </div>
-          <span className="status">Tenant AI connected</span>
+        </div>
+
+        <nav className="nav-list" aria-label="Navegacion principal">
+          <span className="nav-item active">Asistente documental</span>
+          <span className="nav-item">Escrituras</span>
+          <span className="nav-item">Poderes</span>
+          <span className="nav-item">Protocolos</span>
+          <span className="nav-item">Circulares</span>
+        </nav>
+      </aside>
+
+      <section className="portal">
+        <header className="portal-header">
+          <div>
+            <p className="eyebrow">Base documental interna</p>
+            <h1>Asistente de consultas notariales</h1>
+          </div>
+          <div className="user-pill">
+            <span>Recepcion</span>
+            <strong>Demo Company</strong>
+          </div>
         </header>
 
-        <section className="panel">
-          <div className="conversation">
-            <div className="message assistant">
-              <p>
-                Ask a question about the company documents. This demo portal
-                calls Tenant AI API from a server-side integration route.
-              </p>
+        <section className="assistant-card">
+          <div className="chat-window" aria-live="polite">
+            <div className="chat-message assistant">
+              <span className="avatar">AI</span>
+              <div className="bubble">
+                <p>
+                  Hola. Puedo ayudarte a consultar la documentacion interna de
+                  la notaria.
+                </p>
+              </div>
             </div>
 
+            {submittedQuestion ? (
+              <div className="chat-message user">
+                <div className="bubble">
+                  <p>{submittedQuestion}</p>
+                </div>
+                <span className="avatar">TU</span>
+              </div>
+            ) : null}
+
+            {isLoading ? (
+              <div className="chat-message assistant">
+                <span className="avatar">AI</span>
+                <div className="bubble loading">
+                  <span />
+                  <span />
+                  <span />
+                </div>
+              </div>
+            ) : null}
+
             {response ? (
-              <div className="result">
-                <div className="message user">
-                  <p>{question}</p>
-                </div>
-
-                <div className="message assistant">
+              <div className="chat-message assistant">
+                <span className="avatar">AI</span>
+                <div className="bubble">
                   <p>{response.answer}</p>
-                </div>
 
-                <section className="details">
-                  <div>
-                    <h2>Sources</h2>
+                  <div className="sources">
+                    <strong>Fuentes consultadas</strong>
                     {response.sources.length > 0 ? (
                       <ul>
                         {response.sources.map((source) => (
-                          <li key={source.chunkId}>
-                            <strong>{source.documentName}</strong>
-                            <span>{source.chunkId}</span>
-                          </li>
+                          <li key={source.chunkId}>{source.documentName}</li>
                         ))}
                       </ul>
                     ) : (
-                      <p className="muted">No sources returned.</p>
+                      <span>No se encontraron documentos relacionados.</span>
                     )}
                   </div>
-
-                  <div>
-                    <h2>Usage</h2>
-                    <dl>
-                      <div>
-                        <dt>Provider</dt>
-                        <dd>{response.usage.provider}</dd>
-                      </div>
-                      <div>
-                        <dt>Model</dt>
-                        <dd>{response.usage.model}</dd>
-                      </div>
-                      <div>
-                        <dt>Total tokens</dt>
-                        <dd>{response.usage.totalTokens ?? 'N/A'}</dd>
-                      </div>
-                      <div>
-                        <dt>Selected chunks</dt>
-                        <dd>{response.usage.selectedChunks ?? 'N/A'}</dd>
-                      </div>
-                    </dl>
-                  </div>
-                </section>
+                </div>
               </div>
             ) : null}
 
             {errorMessage ? (
-              <div className="message error">
-                <p>{errorMessage}</p>
+              <div className="chat-message assistant">
+                <span className="avatar">AI</span>
+                <div className="bubble error">
+                  <p>{errorMessage}</p>
+                </div>
               </div>
             ) : null}
           </div>
 
+          <div className="suggestions" aria-label="Consultas sugeridas">
+            {suggestedQuestions.map((suggestion) => (
+              <button
+                className="suggestion"
+                disabled={isLoading}
+                key={suggestion}
+                onClick={() => void handleSuggestionClick(suggestion)}
+                type="button"
+              >
+                {suggestion}
+              </button>
+            ))}
+          </div>
+
           <form className="composer" onSubmit={handleAsk}>
             <textarea
-              aria-label="Question"
-              placeholder="Ask about internal documents..."
-              rows={3}
+              aria-label="Consulta"
+              placeholder="Escribe una consulta para la base documental..."
+              rows={2}
               value={question}
               onChange={(event) => setQuestion(event.target.value)}
             />
             <button type="submit" disabled={isLoading}>
-              {isLoading ? 'Asking...' : 'Ask'}
+              {isLoading ? 'Consultando' : 'Enviar'}
             </button>
           </form>
         </section>

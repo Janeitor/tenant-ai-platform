@@ -102,7 +102,7 @@ The project includes a sample customer integration app:
 apps/client-demo
 ```
 
-It simulates a customer portal that consumes:
+It simulates a notary intranet that consumes:
 
 ```txt
 POST /api/ask
@@ -137,6 +137,210 @@ For customer integration details, see:
 
 ```txt
 docs/api-query-integration-guide.md
+```
+
+## Demo Flow
+
+This flow demonstrates the current end-to-end product locally.
+
+### 1. Start local infrastructure
+
+```bash
+docker compose up -d
+```
+
+Check services:
+
+```bash
+docker compose ps
+```
+
+Expected local services:
+
+```txt
+PostgreSQL + pgvector
+Redis
+MinIO
+```
+
+### 2. Configure environment
+
+Create `.env` from `.env.example` if needed:
+
+```bash
+cp .env.example .env
+```
+
+Recommended demo settings:
+
+```env
+EMBEDDING_PROVIDER=openai
+EMBEDDING_DIMENSIONS=1536
+OPENAI_EMBEDDING_MODEL=text-embedding-3-small
+LLM_PROVIDER_NAME=openai
+OPENAI_MODEL=gpt-5-mini
+MIN_RETRIEVAL_SIMILARITY=0.5
+```
+
+`OPENAI_API_KEY` must be configured locally. Do not commit secrets.
+
+For a no-cost local-only demo, use:
+
+```env
+EMBEDDING_PROVIDER=local
+LLM_PROVIDER_NAME=local
+```
+
+### 3. Run database migrations
+
+```bash
+npm run prisma:migrate --workspace @tenant-ai/api
+npm run prisma:generate --workspace @tenant-ai/api
+```
+
+### 4. Start the API
+
+```bash
+npm run start:dev --workspace @tenant-ai/api
+```
+
+Health check:
+
+```powershell
+Invoke-RestMethod http://localhost:3000/api/health
+```
+
+### 5. Prepare a tenant API key
+
+The demo API calls use:
+
+```txt
+x-api-key: tai_...
+```
+
+The API key resolves the tenant. The client must not send `tenantId`.
+
+In PowerShell:
+
+```powershell
+$apiKey = "tai_your_tenant_api_key"
+```
+
+### 6. Upload and ingest a document
+
+Upload a text or PDF document:
+
+```powershell
+curl.exe -X POST `
+  http://localhost:3000/api/documents/upload `
+  -H "x-api-key: $apiKey" `
+  -F "file=@sample-document-caperucita.txt"
+```
+
+PDF files are supported when they contain selectable text. Scanned or image-only PDFs require OCR and are outside the current MVP scope.
+
+Use the returned `id` to ingest:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri http://localhost:3000/api/documents/DOCUMENT_ID/ingest `
+  -Headers @{"x-api-key"=$apiKey}
+```
+
+Ingestion creates chunks, estimates token counts, generates embeddings and stores vectors in PostgreSQL using pgvector.
+
+### 7. Query the API
+
+Ask a question:
+
+```powershell
+$response = Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://localhost:3000/api/ask" `
+  -Headers @{"x-api-key"=$apiKey} `
+  -ContentType "application/json" `
+  -Body '{"question":"A quien visita Caperucita Roja?","limit":5}'
+
+$response | ConvertTo-Json -Depth 5
+```
+
+Expected behavior:
+
+```txt
+answer with document-grounded response
+sources with documentName and chunkId
+usage with provider/model/tokens/context metrics
+```
+
+Ask an unrelated question:
+
+```powershell
+$response = Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://localhost:3000/api/ask" `
+  -Headers @{"x-api-key"=$apiKey} `
+  -ContentType "application/json" `
+  -Body '{"question":"Quien es el dueno de SpaceX","limit":5}'
+
+$response | ConvertTo-Json -Depth 5
+```
+
+With `MIN_RETRIEVAL_SIMILARITY=0.5`, the expected response has:
+
+```txt
+sources: []
+usage.selectedChunks: 0
+```
+
+### 8. Review usage logs
+
+```powershell
+$response = Invoke-RestMethod `
+  -Method Get `
+  -Uri "http://localhost:3000/api/usage?page=1&limit=5" `
+  -Headers @{"x-api-key"=$apiKey}
+
+$response | ConvertTo-Json -Depth 5
+```
+
+Usage logs are tenant-scoped and include token/context metrics when available.
+
+### 9. Run the client demo
+
+Create:
+
+```txt
+apps/client-demo/.env.local
+```
+
+Example:
+
+```env
+TENANT_AI_API_URL=http://localhost:3000/api
+TENANT_AI_API_KEY=tai_your_tenant_api_key
+```
+
+Start the demo app:
+
+```bash
+npm run dev --workspace @tenant-ai/client-demo
+```
+
+Open:
+
+```txt
+http://localhost:3001
+```
+
+The demo simulates a customer application for a notary office. It calls its own Next.js server route, which then calls Tenant AI API with `x-api-key`. The browser never sees the tenant API key.
+
+### 10. Validate the project
+
+```bash
+npm run lint
+npm run test
+npm run build
 ```
 
 ## API Validation
@@ -256,7 +460,7 @@ All document endpoints require:
 x-api-key: tai_...
 ```
 
-`POST /api/documents/upload` accepts `multipart/form-data` with a `file` field. Upload validation currently allows only `text/plain` documents and limits each file to 5 MB. This matches the current ingestion pipeline, which extracts UTF-8 text from plain text files before chunking.
+`POST /api/documents/upload` accepts `multipart/form-data` with a `file` field. Upload validation currently allows `text/plain` and `application/pdf` documents and limits each file to 5 MB.
 
 Uploaded files are stored in the configured S3-compatible bucket using tenant-scoped object keys:
 
@@ -266,7 +470,9 @@ Uploaded files are stored in the configured S3-compatible bucket using tenant-sc
 
 The document row stores `storageKey` and uses `status = uploaded` after a successful object storage upload.
 
-Basic ingestion currently supports `text/plain` documents. The ingestion endpoint reads the stored object through the storage abstraction, extracts UTF-8 text, splits it into overlapping chunks, estimates a token count per chunk, stores them in `document_chunks`, and updates the document to `status = ready`.
+Basic ingestion currently supports plain text documents and PDFs with selectable text. The ingestion endpoint reads the stored object through the storage abstraction, extracts text, splits it into overlapping chunks, estimates a token count per chunk, stores them in `document_chunks`, and updates the document to `status = ready`.
+
+PDF support does not include OCR in the current MVP. Scanned PDFs or image-only PDFs require a future OCR provider.
 
 Current ingestion behavior:
 
@@ -274,7 +480,7 @@ Current ingestion behavior:
 POST /api/documents/:documentId/ingest
   -> requires x-api-key
   -> filters document by authenticated tenantId
-  -> supports text/plain only
+  -> supports text/plain and application/pdf with selectable text
   -> creates document_chunks
   -> stores tokenCount using Math.ceil(content.length / 4)
   -> marks document as ready

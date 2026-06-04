@@ -105,7 +105,7 @@ Rules:
 5. Generate embeddings
 6. Store vectors
 
-Current implementation supports a first ingestion phase for `text/plain` documents:
+Current implementation supports ingestion for `text/plain` documents and PDFs with selectable text:
 
 ```txt
 POST /api/documents/:documentId/ingest
@@ -116,7 +116,9 @@ IngestionService loads document by id + tenantId
   |
 ObjectStoragePort reads stored object
   |
-Text is split into overlapping chunks
+DocumentTextExtractorService extracts text
+  |
+Extracted text is split into overlapping chunks
   |
 Token count is estimated per chunk
   |
@@ -128,6 +130,8 @@ Document status becomes ready
 ```
 
 The default embedding provider is local and deterministic. It is used to validate the pipeline without calling OpenAI or Gemini. OpenAI embeddings are implemented as an optional provider behind the same embedding provider contract.
+
+PDF support in the MVP does not include OCR. Scanned PDFs or image-only PDFs must be handled later through a dedicated OCR provider before the chunking step.
 
 The database embedding column is configured as `vector(1536)`. This aligns local development with the planned OpenAI embedding model `text-embedding-3-small`, whose default embedding size is 1536 dimensions.
 
@@ -377,7 +381,9 @@ Document uploads currently use tenant-scoped object keys:
 
 After a successful upload, document metadata is persisted in PostgreSQL with `storageKey` and `status = uploaded`.
 
-Upload validation is performed at the controller boundary before the document service is called. The current accepted MIME type is `text/plain`, with a maximum file size of 5 MB. Wider formats such as PDF should be added together with a dedicated extractor and related tests.
+Upload validation is performed at the controller boundary before the document service is called. The current accepted MIME types are `text/plain` and `application/pdf`, with a maximum file size of 5 MB.
+
+PDF ingestion uses a dedicated text extractor service. It supports PDFs that contain selectable text and rejects documents with no extractable text. OCR for scanned PDFs remains a future improvement.
 
 ---
 

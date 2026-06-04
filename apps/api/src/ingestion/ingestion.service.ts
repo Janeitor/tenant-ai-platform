@@ -11,6 +11,7 @@ import { OBJECT_STORAGE } from '../storage/object-storage.service';
 import { type ObjectStoragePort } from '../storage/object-storage.types';
 import { estimateTokenCount } from './token-count';
 import { ConfigService } from '@nestjs/config';
+import { DocumentTextExtractorService } from './document-text-extractor.service';
 
 export interface IngestDocumentResult {
     documentId: string;
@@ -29,6 +30,7 @@ export class IngestionService {
         @Inject(OBJECT_STORAGE)
         private readonly objectStorage: ObjectStoragePort,
         private readonly embeddingsService: EmbeddingsService,
+        private readonly documentTextExtractor: DocumentTextExtractorService,
         configService: ConfigService,
     ) {
         this.expectedEmbeddingDimensions = Number(
@@ -55,10 +57,6 @@ export class IngestionService {
             throw new BadRequestException('Document has no stored file');
         }
 
-        if (document.mimeType !== 'text/plain') {
-            throw new BadRequestException('Only text/plain ingestion is supported');
-        }
-
         await this.prisma.document.update({
             where: {
                 id: document.id,
@@ -72,7 +70,10 @@ export class IngestionService {
             key: document.storageKey,
         });
 
-        const content = storedObject.body.toString('utf8');
+        const content = await this.documentTextExtractor.extractText({
+            body: storedObject.body,
+            mimeType: document.mimeType,
+        });
         const chunks = this.splitIntoChunks(content);
 
         await this.prisma.documentChunk.deleteMany({
