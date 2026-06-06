@@ -171,6 +171,30 @@ npm audit --audit-level=high
 
 The Prisma client is generated inside CI because generated Prisma output is intentionally not committed to Git. Vulnerabilities with `high` or `critical` severity fail CI. Known moderate findings are documented in `docs/vulnerability-analysis.md`.
 
+## Infrastructure As Code
+
+The MVP includes an initial Terraform configuration for Cloudflare infrastructure:
+
+```txt
+infra/terraform/cloudflare
+```
+
+Current Terraform scope:
+
+```txt
+Cloudflare R2 bucket used for tenant document storage
+```
+
+The existing R2 bucket was imported into Terraform state and validated with `terraform plan` returning no changes. Terraform local state, local variable files and provider cache files are intentionally ignored by Git:
+
+```txt
+infra/terraform/cloudflare/.terraform/
+infra/terraform/cloudflare/terraform.tfstate
+infra/terraform/cloudflare/terraform.tfvars
+```
+
+The committed Terraform files document the expected Cloudflare R2 infrastructure without committing secrets. Prisma migrations remain managed by Prisma and CI/CD release steps, not by Terraform.
+
 ## Demo Flow
 
 This flow demonstrates the current end-to-end product locally.

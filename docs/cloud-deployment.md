@@ -34,7 +34,7 @@ GitHub Actions
   -> future Prisma migrate deploy
 
 Terraform
-  -> Cloudflare R2 resources
+  -> Cloudflare R2 bucket represented as infrastructure as code
   -> future infrastructure-as-code expansion
 ```
 
@@ -153,6 +153,59 @@ Uploaded documents are stored with tenant-scoped keys:
 ```txt
 {tenantId}/documents/{timestamp}-{uuid}-{safeFileName}
 ```
+
+## Terraform Infrastructure As Code
+
+The MVP includes an initial Terraform configuration for Cloudflare resources:
+
+```txt
+infra/terraform/cloudflare
+```
+
+Current scope:
+
+```txt
+cloudflare_r2_bucket.documents
+  -> tenant-ai-documents
+```
+
+This means the Cloudflare R2 bucket used by the API is represented as infrastructure as code. The bucket already existed during the MVP cloud setup, so it was imported into Terraform state instead of being recreated.
+
+Validated Terraform result:
+
+```txt
+terraform plan
+  -> No changes. Your infrastructure matches the configuration.
+```
+
+Committed Terraform files:
+
+```txt
+infra/terraform/cloudflare/.terraform.lock.hcl
+infra/terraform/cloudflare/README.md
+infra/terraform/cloudflare/main.tf
+infra/terraform/cloudflare/outputs.tf
+infra/terraform/cloudflare/terraform.tfvars.example
+infra/terraform/cloudflare/variables.tf
+```
+
+Files intentionally not committed:
+
+```txt
+infra/terraform/cloudflare/.terraform/
+infra/terraform/cloudflare/terraform.tfstate
+infra/terraform/cloudflare/terraform.tfvars
+```
+
+Rationale:
+
+```txt
+.terraform/ contains local provider/cache data
+terraform.tfstate contains real infrastructure state
+terraform.tfvars can contain account IDs, tokens or environment-specific values
+```
+
+Terraform is currently used only for infrastructure resources. It does not manage Prisma migrations, tenant data, API keys or application secrets.
 
 ## OpenAI Configuration
 
@@ -441,9 +494,10 @@ Prisma deployment
   -> run prisma migrate deploy in CI/CD or Railway pre-deploy
 
 Terraform
-  -> manage Cloudflare R2 bucket
+  -> Cloudflare R2 bucket is already represented in infra/terraform/cloudflare
   -> manage Cloudflare Worker resources if practical
   -> document provider variables and remote state decision
+  -> consider remote state before using Terraform collaboratively
 ```
 
 Prisma migrations should not be managed by Terraform. Terraform manages infrastructure resources; Prisma manages application database schema changes.
