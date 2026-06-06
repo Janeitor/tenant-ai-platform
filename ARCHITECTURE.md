@@ -1,22 +1,22 @@
-# Architecture
+# Arquitectura
 
-## Overview
+## Visión General
 
-TenantAI Platform is a multi-tenant enterprise AI platform that provides Retrieval-Augmented Generation (RAG) capabilities through an API-first architecture.
+TenantAI Platform es una plataforma de IA empresarial multi-tenant que entrega capacidades de Retrieval-Augmented Generation (RAG) mediante una arquitectura API-first.
 
-The system allows companies to:
-- upload internal documents
-- generate embeddings
-- perform semantic search
-- query knowledge using LLMs
-- isolate information per tenant
+El sistema permite a las empresas:
+- subir documentos internos
+- generar embeddings
+- realizar búsqueda semántica
+- consultar conocimiento usando LLMs
+- aislar información por tenant
 
 ---
 
-## High-level architecture
+## Arquitectura De Alto Nivel
 
 ```text
-Client
+Cliente
   |
 API Gateway
   |
@@ -30,16 +30,16 @@ PostgreSQL + pgvector
   |
 LLM Provider
   |
-Response with sources
+Respuesta con fuentes
 ```
 
 ---
 
-## Backend architecture
+## Arquitectura Backend
 
-The backend follows modular architecture using NestJS.
+El backend sigue una arquitectura modular usando NestJS.
 
-Modules:
+Módulos:
 - auth
 - tenants
 - api-keys
@@ -52,245 +52,245 @@ Modules:
 
 ---
 
-## Customer integration demo
+## Demo De Integración De Cliente
 
-The repository includes `apps/client-demo`, a sample customer application used to demonstrate API-first integration.
+El repositorio incluye `apps/client-demo`, una aplicación cliente de ejemplo usada para demostrar la integración API-first.
 
-Although it lives in the same monorepo for the TFM demo, it is treated architecturally as an external customer system:
+Aunque vive en el mismo monorepo para la demo del TFM, arquitectónicamente se trata como un sistema externo de un cliente:
 
-- it does not import backend services from `apps/api`
-- it does not access Prisma or the database
-- it does not know the tenantId
-- it calls Tenant AI through HTTP
-- it keeps the tenant API key in server-side environment variables
+- no importa servicios backend desde `apps/api`
+- no accede a Prisma ni a la base de datos
+- no conoce el `tenantId`
+- llama a Tenant AI mediante HTTP
+- mantiene la API key del tenant en variables de entorno server-side
 
-The integration flow is:
+El flujo de integración es:
 
 ```txt
-Customer browser
+Navegador del cliente
   |
-Client demo page
+Página client demo
   |
-Client demo server route
+Ruta server del client demo
   |
-Tenant AI API /api/ask with x-api-key
+Tenant AI API /api/ask con x-api-key
   |
-Tenant-scoped RAG response
+Respuesta RAG acotada al tenant
 ```
 
-This mirrors how a real customer backend can consume Tenant AI while keeping the tenant API key out of the browser.
+Esto refleja cómo un backend real de cliente puede consumir Tenant AI manteniendo la API key del tenant fuera del navegador.
 
 ---
 
-## Multi-tenancy strategy
+## Estrategia Multi-Tenant
 
-Tenant isolation is enforced at database and application level.
+El aislamiento por tenant se refuerza a nivel de aplicación y base de datos.
 
-Rules:
-- every business entity includes tenantId
-- all retrieval queries filter by tenantId
-- API keys resolve tenant identity
-- cross-tenant access is forbidden
+Reglas:
+- toda entidad de negocio incluye `tenantId`
+- todas las consultas de retrieval filtran por `tenantId`
+- las API keys resuelven la identidad del tenant
+- el acceso cross-tenant está prohibido
 
 ---
 
-## RAG pipeline
+## Pipeline RAG
 
-### Document ingestion
+### Ingestion De Documentos
 
-1. Upload file
-2. Extract text
-3. Sanitize content
-4. Split into chunks
-5. Generate embeddings
-6. Store vectors
+1. Subir archivo
+2. Extraer texto
+3. Sanitizar contenido
+4. Dividir en chunks
+5. Generar embeddings
+6. Almacenar vectores
 
-Current implementation supports ingestion for `text/plain` documents and PDFs with selectable text:
+La implementación actual soporta ingestion para documentos `text/plain` y PDFs con texto seleccionable:
 
 ```txt
 POST /api/documents/:documentId/ingest
   |
-ApiKeyAuthGuard resolves tenantId
+ApiKeyAuthGuard resuelve tenantId
   |
-IngestionService loads document by id + tenantId
+IngestionService carga documento por id + tenantId
   |
-ObjectStoragePort reads stored object
+ObjectStoragePort lee el objeto almacenado
   |
-DocumentTextExtractorService extracts text
+DocumentTextExtractorService extrae texto
   |
-Extracted text is split into overlapping chunks
+El texto extraído se divide en chunks con solapamiento
   |
-Token count is estimated per chunk
+Se estima el conteo de tokens por chunk
   |
-LocalEmbeddingProvider generates deterministic embeddings
+LocalEmbeddingProvider genera embeddings determinísticos
   |
-document_chunks rows are stored with tenantId + documentId + tokenCount + embedding
+Se almacenan filas en document_chunks con tenantId + documentId + tokenCount + embedding
   |
-Document status becomes ready
+El estado del documento pasa a ready
 ```
 
-The default embedding provider is local and deterministic. It is used to validate the pipeline without calling OpenAI or Gemini. OpenAI embeddings are implemented as an optional provider behind the same embedding provider contract.
+El provider de embeddings por defecto es local y determinístico. Se usa para validar el pipeline sin llamar a OpenAI o Gemini. Los embeddings de OpenAI están implementados como provider opcional detrás del mismo contrato de embeddings.
 
-PDF support in the MVP does not include OCR. Scanned PDFs or image-only PDFs must be handled later through a dedicated OCR provider before the chunking step.
+El soporte PDF del MVP no incluye OCR. PDFs escaneados o basados en imágenes deberán procesarse posteriormente mediante un provider OCR dedicado antes del paso de chunking.
 
-The database embedding column is configured as `vector(1536)`. This aligns local development with the planned OpenAI embedding model `text-embedding-3-small`, whose default embedding size is 1536 dimensions.
+La columna de embeddings en base de datos está configurada como `vector(1536)`. Esto alinea el desarrollo local con el modelo de embeddings planificado de OpenAI, `text-embedding-3-small`, cuyo tamaño por defecto es de 1536 dimensiones.
 
-Changing embedding dimensions invalidates previously generated embeddings. Development chunks created with the earlier 8-dimensional local provider were considered disposable and must be regenerated instead of migrated semantically.
+Cambiar las dimensiones de embeddings invalida embeddings generados previamente. Los chunks de desarrollo creados con el provider local anterior de 8 dimensiones se consideraron datos desechables y deben regenerarse, no migrarse semánticamente.
 
-Changing embedding providers also requires reingestion of documents so stored vectors are generated consistently by the same provider/model/dimension combination.
+Cambiar de provider de embeddings también requiere reingestar documentos para que los vectores almacenados sean generados de forma consistente por la misma combinación provider/modelo/dimensión.
 
-Before `IngestionService` persists a chunk embedding, it validates two conditions:
+Antes de que `IngestionService` persista un embedding de chunk, valida dos condiciones:
 
-- the returned vector length matches the provider-reported dimension
-- the provider-reported dimension matches `EMBEDDING_DIMENSIONS`
+- que el largo del vector devuelto coincida con la dimensión reportada por el provider
+- que la dimensión reportada por el provider coincida con `EMBEDDING_DIMENSIONS`
 
-This protects the pgvector column from receiving vectors that do not match the configured `vector(1536)` storage dimension.
+Esto protege la columna pgvector de recibir vectores incompatibles con la dimensión configurada `vector(1536)`.
 
-Chunk token counts are estimated during ingestion with `Math.ceil(content.length / 4)`. This MVP-friendly heuristic is intentionally simple and supports context budget control before the `/ask` flow sends retrieved chunks to an LLM provider.
+El conteo de tokens por chunk se estima durante ingestion con `Math.ceil(content.length / 4)`. Esta heurística simple y adecuada para el MVP permite controlar el presupuesto de contexto antes de que el flujo `/ask` envíe chunks recuperados a un provider LLM.
 
-Context selection is isolated in `ContextSelectionService`. It does not query the database, resolve tenants or reorder retrieval results. It receives chunks already filtered by tenant and selected by retrieval, then applies `maxContextTokens` and `candidateLimit` using stored `tokenCount` when available.
+La selección de contexto está aislada en `ContextSelectionService`. No consulta la base de datos, no resuelve tenants y no reordena resultados de retrieval. Recibe chunks ya filtrados por tenant y seleccionados por retrieval, luego aplica `maxContextTokens` y `candidateLimit` usando `tokenCount` almacenado cuando está disponible.
 
-Current implementation:
+Implementación actual:
 
 ```txt
 EmbeddingsModule
   |
 EmbeddingsService
   |
-EMBEDDING_PROVIDER token
+token EMBEDDING_PROVIDER
   |
-Provider selector reads EMBEDDING_PROVIDER
+Provider selector lee EMBEDDING_PROVIDER
   |
-LocalEmbeddingProvider or OpenAiEmbeddingProvider
+LocalEmbeddingProvider u OpenAiEmbeddingProvider
   |
-pgvector embedding column on document_chunks using vector(1536)
+Columna embedding pgvector en document_chunks usando vector(1536)
 ```
 
-The OpenAI embedding provider uses the official OpenAI SDK, `OPENAI_EMBEDDING_MODEL` and `EMBEDDING_DIMENSIONS`. It does not know about tenants, documents or Prisma. It only receives text and returns an embedding result.
+El provider de embeddings de OpenAI usa el SDK oficial de OpenAI, `OPENAI_EMBEDDING_MODEL` y `EMBEDDING_DIMENSIONS`. No conoce tenants, documentos ni Prisma. Solo recibe texto y devuelve un resultado de embedding.
 
-When `EMBEDDING_PROVIDER=openai`, ingestion uses OpenAI to generate chunk embeddings, and retrieval uses OpenAI to generate the query embedding. This means `/ask` consumes embedding API quota even when the answer provider remains local.
+Cuando `EMBEDDING_PROVIDER=openai`, ingestion usa OpenAI para generar embeddings de chunks, y retrieval usa OpenAI para generar el embedding de la pregunta. Esto significa que `/ask` consume cuota de la API de embeddings incluso cuando el provider de respuesta sigue siendo local.
 
-### Question answering
+### Respuesta A Preguntas
 
-1. Receive user question
-2. Generate embedding
-3. Retrieve top-k chunks
-4. Build prompt
-5. Call LLM
-6. Return response + sources
+1. Recibir pregunta del usuario
+2. Generar embedding
+3. Recuperar chunks top-k
+4. Construir prompt
+5. Llamar al LLM
+6. Devolver respuesta + fuentes
 
-Current retrieval phase:
+Fase actual de retrieval:
 
 ```txt
 POST /api/retrieval/search
   |
-ApiKeyAuthGuard resolves tenantId
+ApiKeyAuthGuard resuelve tenantId
   |
-EmbeddingsService generates query embedding
+EmbeddingsService genera embedding de la consulta
   |
-RetrievalService runs pgvector SQL search
+RetrievalService ejecuta búsqueda SQL con pgvector
   |
-WHERE document_chunks.tenantId = authenticated tenantId
+WHERE document_chunks.tenantId = tenantId autenticado
   |
-Return chunk content + document source metadata
+Devuelve contenido del chunk + metadata de fuente del documento
 ```
 
-Retrieval uses pgvector cosine distance through the `<=>` operator and exposes `similarity = 1 - cosine_distance` in API responses. Higher similarity values represent more relevant chunks.
+Retrieval usa distancia coseno de pgvector mediante el operador `<=>` y expone `similarity = 1 - cosine_distance` en las respuestas de API. Valores más altos de similarity representan chunks más relevantes.
 
-Retrieval can optionally apply `MIN_RETRIEVAL_SIMILARITY` to discard weak matches before they are returned or sent to `/ask`. When the value is empty, retrieval keeps the current behavior and does not apply a threshold. When configured, chunks with similarity below the threshold are discarded.
+Retrieval puede aplicar opcionalmente `MIN_RETRIEVAL_SIMILARITY` para descartar coincidencias débiles antes de devolverlas o enviarlas a `/ask`. Cuando el valor está vacío, retrieval conserva el comportamiento actual y no aplica threshold. Cuando está configurado, los chunks con similarity bajo el threshold son descartados.
 
-If retrieval returns no chunks after threshold filtering, the `/ask` flow does not call the LLM provider. `ChatService` returns a controlled insufficient-context response with empty sources and usage metadata showing zero selected chunks.
+Si retrieval no devuelve chunks después del filtrado por threshold, el flujo `/ask` no llama al provider LLM. `ChatService` devuelve una respuesta controlada de contexto insuficiente con fuentes vacías y metadata de uso indicando cero chunks seleccionados.
 
-Current ask phase:
+Fase actual de ask:
 
 ```txt
 POST /api/ask
   |
-ApiKeyAuthGuard resolves tenantId
+ApiKeyAuthGuard resuelve tenantId
   |
-ChatService calls RetrievalService
+ChatService llama a RetrievalService
   |
-ContextSelectionService selects chunks within budget
+ContextSelectionService selecciona chunks dentro del presupuesto
   |
-Only selected chunks become answer context
+Solo los chunks seleccionados se convierten en contexto de respuesta
   |
-ChatService calls LlmService
+ChatService llama a LlmService
   |
-LLM_PROVIDER resolves LocalLlmProvider or OpenAiLlmProvider
+LLM_PROVIDER resuelve LocalLlmProvider u OpenAiLlmProvider
   |
-Response includes answer + sources + usage shape with context metrics
+La respuesta incluye answer + sources + usage shape con métricas de contexto
   |
-UsageService persists usage_logs row
+UsageService persiste una fila en usage_logs
 ```
 
-The default ask implementation uses the local provider, which keeps development deterministic and avoids external API cost. OpenAI is also implemented as an optional provider behind the same `LlmProvider` contract. LLM access is isolated behind `LlmModule`, `LlmService` and the `LLM_PROVIDER` token so provider changes do not require changes in controller behavior or retrieval logic.
+La implementación por defecto de ask usa el provider local, lo que mantiene el desarrollo determinístico y evita costos externos de API. OpenAI también está implementado como provider opcional detrás del mismo contrato `LlmProvider`. El acceso al LLM está aislado detrás de `LlmModule`, `LlmService` y el token `LLM_PROVIDER`, por lo que cambiar de provider no requiere modificar el comportamiento del controller ni la lógica de retrieval.
 
-`ChatService` calculates an effective candidate limit with `Math.min(request.limit ?? MAX_CHUNKS_PER_QUERY, MAX_CHUNKS_PER_QUERY)`. It retrieves at most that many chunks, applies `ContextSelectionService`, and sends only selected chunks to the LLM provider. If no chunk fits the context budget, `ChatService` returns a controlled answer and does not call `LlmService`.
+`ChatService` calcula un límite efectivo de candidatos con `Math.min(request.limit ?? MAX_CHUNKS_PER_QUERY, MAX_CHUNKS_PER_QUERY)`. Recupera como máximo esa cantidad de chunks, aplica `ContextSelectionService` y envía solo los chunks seleccionados al provider LLM. Si ningún chunk cabe dentro del presupuesto de contexto, `ChatService` devuelve una respuesta controlada y no llama a `LlmService`.
 
-The active LLM provider is selected from configuration through `LLM_PROVIDER_NAME`.
+El provider LLM activo se selecciona desde configuración usando `LLM_PROVIDER_NAME`.
 
-Supported values:
+Valores soportados:
 
 ```txt
 local
 openai
 ```
 
-Unsupported values fail at startup to avoid silently running with the wrong provider.
+Valores no soportados fallan al iniciar la aplicación para evitar ejecutar silenciosamente con un provider incorrecto.
 
-Current LLM implementation:
+Implementación LLM actual:
 
 ```txt
 LlmModule
   |
 LlmService
   |
-LLM_PROVIDER token
+token LLM_PROVIDER
   |
-Provider selector reads LLM_PROVIDER_NAME
+Provider selector lee LLM_PROVIDER_NAME
   |
-LocalLlmProvider or OpenAiLlmProvider
+LocalLlmProvider u OpenAiLlmProvider
 ```
 
-The local provider preserves the response contract expected for the final RAG API, including sources and usage metadata with token fields set to `null` until a real LLM provider is integrated. `ChatService` enriches the provider usage with context metrics before persisting usage.
+El provider local conserva el contrato de respuesta esperado para la API RAG final, incluyendo fuentes y metadata de uso con campos de tokens en `null` hasta integrar un provider LLM real. `ChatService` enriquece el uso del provider con métricas de contexto antes de persistirlo.
 
-The OpenAI provider uses the official OpenAI SDK and Responses API. It receives only the selected context chunks prepared by `ChatService`, builds the final model input from retrieved context plus the user question, and maps provider usage fields into the shared usage contract when available.
+El provider OpenAI usa el SDK oficial de OpenAI y la Responses API. Recibe solo los chunks de contexto seleccionados preparados por `ChatService`, construye el input final del modelo a partir del contexto recuperado más la pregunta del usuario y mapea campos de uso del provider al contrato compartido cuando están disponibles.
 
-`OpenAiLlmProvider` performs a final defensive validation before calling the external API. It rejects empty questions or empty context locally, so invalid requests do not consume external LLM tokens.
+`OpenAiLlmProvider` realiza una validación defensiva final antes de llamar a la API externa. Rechaza localmente preguntas vacías o contexto vacío, evitando consumir tokens externos de LLM en solicitudes inválidas.
 
-The full OpenAI-backed RAG flow is:
+El flujo RAG completo respaldado por OpenAI es:
 
 ```txt
 POST /api/ask
   |
-ApiKeyAuthGuard resolves tenantId
+ApiKeyAuthGuard resuelve tenantId
   |
-OpenAiEmbeddingProvider embeds the question
+OpenAiEmbeddingProvider genera embedding de la pregunta
   |
-RetrievalService searches tenant-filtered pgvector chunks
+RetrievalService busca chunks pgvector filtrados por tenant
   |
-ContextSelectionService limits selected context
+ContextSelectionService limita el contexto seleccionado
   |
-OpenAiLlmProvider generates the answer
+OpenAiLlmProvider genera la respuesta
   |
-ChatService returns answer + sources + usage
+ChatService devuelve answer + sources + usage
   |
-UsageService persists token and context metrics
+UsageService persiste métricas de tokens y contexto
 ```
 
-Local providers remain available for development and tests to avoid external API cost.
+Los providers locales siguen disponibles para desarrollo y tests, evitando costos externos de API.
 
-External LLM adapters must follow these rules:
+Los adapters externos de LLM deben seguir estas reglas:
 
-- The adapter must not resolve or accept `tenantId`.
-- The adapter must not query Prisma or retrieve documents.
-- The adapter receives only tenant-filtered contexts prepared by retrieval.
-- The adapter must build prompts using only retrieved context plus the user question.
-- The adapter must not log full prompts, API keys or document contents.
-- The adapter must return a consistent usage object, using `null` for token or cost values unavailable from the provider.
-- Automated tests must mock external providers and must not call real OpenAI or Gemini APIs.
+- El adapter no debe resolver ni aceptar `tenantId`.
+- El adapter no debe consultar Prisma ni recuperar documentos.
+- El adapter recibe solo contextos filtrados por tenant y preparados por retrieval.
+- El adapter debe construir prompts usando solo contexto recuperado más la pregunta del usuario.
+- El adapter no debe loguear prompts completos, API keys ni contenido de documentos.
+- El adapter debe devolver un objeto `usage` consistente, usando `null` para tokens o costos no disponibles desde el provider.
+- Los tests automatizados deben mockear providers externos y no deben llamar APIs reales de OpenAI o Gemini.
 
-Provider flow:
+Flujo de providers:
 
 ```txt
 ChatService
@@ -299,38 +299,38 @@ LlmService
   |
 LLM_PROVIDER
   |
-LocalLlmProvider, OpenAiLlmProvider or future GeminiLlmProvider
+LocalLlmProvider, OpenAiLlmProvider o futuro GeminiLlmProvider
   |
 answer + usage
 ```
 
-Usage logging is persisted from the initial implementation:
+El logging de uso se persiste desde la implementación inicial:
 
 ```txt
 UsageModule
   |
-UsageController exposes tenant-scoped reads
+UsageController expone lecturas acotadas al tenant
   |
 UsageService
   |
 usage_logs
   |
-tenantId + provider + model + token/cost fields + context metrics
+tenantId + provider + model + campos token/costo + métricas de contexto
 ```
 
-When the local LLM provider is active, token fields are persisted as `null`. When the OpenAI LLM provider is active, OpenAI token usage is mapped into `inputTokens`, `outputTokens` and `totalTokens` when returned by the provider. `estimatedCostUsd` remains nullable and is reserved for a future pricing calculation layer.
+Cuando el provider LLM local está activo, los campos de tokens se persisten como `null`. Cuando el provider LLM OpenAI está activo, el uso de tokens de OpenAI se mapea a `inputTokens`, `outputTokens` y `totalTokens` cuando el provider lo devuelve. `estimatedCostUsd` sigue siendo nullable y queda reservado para una futura capa de cálculo de precios.
 
-`GET /api/usage` uses `ApiKeyAuthGuard` and reads `tenantId` from the authenticated API key. Usage logs are not queried by tenantId supplied by the client.
+`GET /api/usage` usa `ApiKeyAuthGuard` y lee `tenantId` desde la API key autenticada. Los usage logs no se consultan usando un `tenantId` enviado por el cliente.
 
-Usage visibility uses offset pagination with `page` and `limit`. Date filters use `YYYY-MM-DD`; when no dates are provided, the service defaults to the current calendar month. Custom ranges are capped at 90 days. The service applies tenant filtering, date filtering, `createdAt DESC` ordering, `skip/take` pagination and a matching tenant-scoped `count` query.
+La visibilidad de uso utiliza paginación offset con `page` y `limit`. Los filtros de fecha usan `YYYY-MM-DD`; cuando no se entregan fechas, el service usa por defecto el mes calendario actual. Los rangos personalizados están limitados a 90 días. El service aplica filtrado por tenant, filtrado por fecha, ordenamiento `createdAt DESC`, paginación `skip/take` y una consulta `count` acotada al mismo tenant.
 
 ---
 
-## Database
+## Base De Datos
 
 ### PostgreSQL + pgvector
 
-Main tables:
+Tablas principales:
 - tenants
 - api_keys
 - documents
@@ -343,107 +343,107 @@ Main tables:
 
 ## Storage
 
-Documents are stored using S3-compatible storage.
+Los documentos se almacenan usando storage compatible con S3.
 
-Development:
+Desarrollo:
 - MinIO
 
-Production:
-- Cloudflare R2 or AWS S3
+Producción:
+- Cloudflare R2 o AWS S3
 
-Storage access must be isolated behind providers/adapters so business logic does not depend directly on MinIO. MinIO is the local S3-compatible implementation, not the domain abstraction.
+El acceso a storage debe estar aislado detrás de providers/adapters para que la lógica de negocio no dependa directamente de MinIO. MinIO es la implementación local compatible con S3, no la abstracción de dominio.
 
-Azure Blob Storage remains a possible future production target, but it should be introduced through a separate adapter because it does not use the S3 API natively.
+Azure Blob Storage sigue siendo un posible target futuro de producción, pero debe introducirse mediante un adapter separado porque no usa la API S3 de forma nativa.
 
-Current implementation:
+Implementación actual:
 
 ```txt
 StorageModule
   |
-OBJECT_STORAGE provider token
+token provider OBJECT_STORAGE
   |
-ObjectStoragePort contract
+contrato ObjectStoragePort
   |
 S3StorageAdapter
   |
-S3-compatible storage (MinIO locally)
+storage compatible con S3 (MinIO localmente)
 ```
 
-The S3 adapter uses `@aws-sdk/client-s3`. Domain services should depend on the storage contract and provider token, not directly on MinIO or a cloud-specific SDK.
+El adapter S3 usa `@aws-sdk/client-s3`. Los services de dominio deben depender del contrato de storage y del token provider, no directamente de MinIO ni de un SDK específico de cloud.
 
-The adapter verifies the configured bucket before upload and creates it automatically when it does not exist.
+El adapter verifica el bucket configurado antes de subir archivos y lo crea automáticamente cuando no existe.
 
-Document uploads currently use tenant-scoped object keys:
+Las cargas de documentos usan actualmente object keys acotadas por tenant:
 
 ```txt
 {tenantId}/documents/{timestamp}-{uuid}-{safeFileName}
 ```
 
-After a successful upload, document metadata is persisted in PostgreSQL with `storageKey` and `status = uploaded`.
+Después de una carga exitosa, la metadata del documento se persiste en PostgreSQL con `storageKey` y `status = uploaded`.
 
-Upload validation is performed at the controller boundary before the document service is called. The current accepted MIME types are `text/plain` and `application/pdf`, with a maximum file size of 5 MB.
+La validación de upload se realiza en el límite del controller antes de llamar al document service. Los MIME types aceptados actualmente son `text/plain` y `application/pdf`, con un tamaño máximo de archivo de 5 MB.
 
-PDF ingestion uses a dedicated text extractor service. It supports PDFs that contain selectable text and rejects documents with no extractable text. OCR for scanned PDFs remains a future improvement.
-
----
-
-## Queue system
-
-BullMQ + Redis are used for:
-- async ingestion
-- embedding generation
-- future background jobs
+La ingestion de PDF usa un service dedicado de extracción de texto. Soporta PDFs que contienen texto seleccionable y rechaza documentos sin texto extraíble. OCR para PDFs escaneados queda como mejora futura.
 
 ---
 
-## AI Providers
+## Sistema De Queue
 
-Implemented LLM providers:
+BullMQ + Redis se usan para:
+- ingestion asíncrona
+- generación de embeddings
+- futuros jobs en background
+
+---
+
+## Providers De IA
+
+Providers LLM implementados:
 - local
 - OpenAI
 
-Planned provider:
+Provider planificado:
 - Gemini
 
-The provider layer must remain abstracted. Automated tests mock external providers and must not call real OpenAI or Gemini APIs.
+La capa de providers debe mantenerse abstraída. Los tests automatizados mockean providers externos y no deben llamar APIs reales de OpenAI o Gemini.
 
 ---
 
-## Security
+## Seguridad
 
-- API key authentication
-- tenant isolation
-- global DTO validation with NestJS ValidationPipe
-- file validation
-- restricted logging
-- environment variable secrets
+- autenticación con API key
+- aislamiento por tenant
+- validación global de DTOs con NestJS ValidationPipe
+- validación de archivos
+- logging restringido
+- secretos mediante variables de entorno
 
-Validation rules:
+Reglas de validación:
 
-- request body DTOs use runtime validation decorators
-- unknown body properties are rejected
-- business endpoints must not trust tenantId from request bodies
-- tenant identity is resolved from API keys
+- los DTOs del request body usan decoradores de validación en runtime
+- propiedades desconocidas del body son rechazadas
+- los endpoints de negocio no deben confiar en `tenantId` desde request bodies
+- la identidad del tenant se resuelve desde API keys
 
 ---
 
-## Deployment
+## Despliegue
 
-Local development:
+Desarrollo local:
 - Docker Compose
 
-Cloud deployment:
-- Render
-- Railway
-- Fly.io
+Despliegue cloud validado para el MVP:
+- Railway para API y PostgreSQL
+- Cloudflare R2 para storage
+- Cloudflare Workers para client demo
 
 ---
 
-## Future improvements
+## Mejoras Futuras
 
 - RBAC
 - agents
-- workflow automation
-- usage billing
-- Terraform automation
-- ERP connectors
+- automatización de workflows
+- billing por uso
+- automatización Terraform ampliada
+- conectores ERP

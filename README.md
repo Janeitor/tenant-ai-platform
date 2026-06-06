@@ -1,28 +1,28 @@
 # TFM Multitenant RAG
 
-Multi-tenant enterprise AI platform that exposes a RAG API for companies to query internal documents without managing AI infrastructure.
+Plataforma de IA empresarial multi-tenant que expone una API RAG para que las empresas puedan consultar documentos internos sin administrar infraestructura de IA.
 
-## Product Goal
+## Objetivo Del Producto
 
-Build a production-oriented platform with:
-- API-first design
-- multi-tenant isolation
-- secure document processing
-- retrieval with tenant filtering
-- responses with sources
-- token usage visibility
-- maintainable architecture and automated tests
+Construir una plataforma orientada a producción con:
+- diseño API-first
+- aislamiento multi-tenant
+- procesamiento seguro de documentos
+- retrieval con filtrado por tenant
+- respuestas con fuentes
+- visibilidad del uso de tokens
+- arquitectura mantenible y tests automatizados
 
-The initial deliverable is not a throwaway prototype. Implemented features should follow the architecture, security and maintainability standards expected from the final product.
+El entregable inicial no es un prototipo desechable. Las funcionalidades implementadas deben seguir estándares de arquitectura, seguridad y mantenibilidad esperados para el producto final.
 
-## Required Tools
+## Herramientas Requeridas
 
 - Node.js 22 LTS
 - npm
 - Git
-- Docker Desktop with Docker Compose
+- Docker Desktop con Docker Compose
 
-Recommended local alignment:
+Alineación local recomendada:
 
 ```bash
 node -v
@@ -31,62 +31,99 @@ git --version
 docker compose version
 ```
 
-The project should use the same Node.js major version locally, in Docker and in GitHub Actions.
+El proyecto debe usar la misma versión mayor de Node.js localmente, en Docker y en GitHub Actions.
 
-Currently tested with:
+Actualmente probado con:
 
 ```txt
 Node.js v22.22.3
 npm 10.9.8
 ```
 
-## Planned Tech Stack
+## Tech Stack Planificado
 
 - Backend: NestJS + TypeScript
-- Database: PostgreSQL + pgvector
+- Base de datos: PostgreSQL + pgvector
 - ORM: Prisma
-- AI providers: OpenAI SDK and/or Gemini SDK
+- Proveedores de IA: OpenAI SDK y/o Gemini SDK
 - Queue: BullMQ + Redis
-- Storage: S3-compatible storage
+- Storage: almacenamiento compatible con S3
 - Frontend: Next.js
 - Tests: Jest + Supertest
-- Docker: Docker Compose for local development
+- Docker: Docker Compose para desarrollo local
 - CI/CD: GitHub Actions
 
-## Planned Project Structure
+## Estructura Del Proyecto
 
 ```txt
-apps/
-  api/
-  web/
-  client-demo/
-packages/
-  shared/
+.
+├── apps/
+│   ├── api/
+│   │   ├── prisma/
+│   │   │   ├── migrations/
+│   │   │   └── schema.prisma
+│   │   └── src/
+│   │       ├── api-keys/
+│   │       ├── auth/
+│   │       ├── chat/
+│   │       ├── context/
+│   │       ├── documents/
+│   │       ├── embeddings/
+│   │       ├── health/
+│   │       ├── ingestion/
+│   │       ├── llm/
+│   │       ├── prisma/
+│   │       ├── retrieval/
+│   │       ├── storage/
+│   │       ├── tenants/
+│   │       └── usage/
+│   ├── client-demo/
+│   │   └── src/app/
+│   │       ├── api/ask/
+│   │       └── page.tsx
+│   └── web/
+├── docs/
+│   ├── api-query-integration-guide.md
+│   ├── cloud-deployment.md
+│   └── vulnerability-analysis.md
+├── infra/
+│   └── terraform/
+│       └── cloudflare/
+├── packages/
+│   └── shared/
+├── demo-files/
+├── .github/
+│   └── workflows/
+├── Dockerfile
+├── docker-compose.yml
+├── AGENTS.md
+├── ARCHITECTURE.md
+└── README.md
 ```
 
-`apps/client-demo` is an example customer application. It is included in the monorepo for demonstration purposes, but it behaves like an external customer system: it calls the Tenant AI API over HTTP and keeps the tenant API key in a server-side environment variable.
+`apps/client-demo` es una aplicación cliente de ejemplo. Está incluida en el monorepo con fines demostrativos, pero se comporta como un sistema externo de un cliente: llama a la API de Tenant AI mediante HTTP y mantiene la API key del tenant en una variable de entorno server-side.
 
-## Local Setup
+## Setup Local
 
-Install dependencies:
+Instalar dependencias:
 
 ```bash
 npm install
 ```
 
-Create a local environment file from the example:
+Crear un archivo de entorno local desde el ejemplo:
 
 ```bash
 cp .env.example .env
 ```
 
-On Windows PowerShell:
+En Windows PowerShell:
 
 ```powershell
 Copy-Item .env.example .env
 ```
 
-Run project checks:
+Ejecutar validaciones del proyecto:
 
 ```bash
 npm run lint
@@ -96,72 +133,72 @@ npm run build
 
 ## Client Demo
 
-The project includes a sample customer integration app:
+El proyecto incluye una aplicación de ejemplo para integración de clientes:
 
 ```txt
 apps/client-demo
 ```
 
-It simulates a notary intranet that consumes:
+Simula una intranet notarial que consume:
 
 ```txt
 POST /api/ask
 ```
 
-The browser does not call Tenant AI directly. Instead, the demo uses a Next.js server route that reads:
+El navegador no llama directamente a Tenant AI. En su lugar, el demo usa una ruta server-side de Next.js que lee:
 
 ```env
 TENANT_AI_API_URL=http://localhost:3000/api
 TENANT_AI_API_KEY=tai_...
 ```
 
-and forwards the request to the Tenant AI API with:
+y reenvía la solicitud a la API de Tenant AI con:
 
 ```txt
 x-api-key: tai_...
 ```
 
-The cloud version is deployed as a Cloudflare Worker using OpenNext, preserving the same server-side API key handling.
+La versión cloud está desplegada como Cloudflare Worker usando OpenNext, manteniendo el mismo manejo server-side de la API key.
 
-Run locally:
+Ejecutar localmente:
 
 ```bash
 npm run dev --workspace @tenant-ai/client-demo
 ```
 
-Then open:
+Luego abrir:
 
 ```txt
 http://localhost:3001
 ```
 
-For customer integration details, see:
+Para detalles de integración de clientes, ver:
 
 ```txt
 docs/api-query-integration-guide.md
 ```
 
-For the validated MVP cloud deployment, see:
+Para el despliegue cloud validado del MVP, ver:
 
 ```txt
 docs/cloud-deployment.md
 ```
 
-## Continuous Integration
+## Integración Continua
 
-The repository includes a GitHub Actions workflow:
+El repositorio incluye un workflow de GitHub Actions:
 
 ```txt
 .github/workflows/ci.yml
 ```
 
-It runs on pushes and pull requests targeting `main`.
+Se ejecuta en pushes y pull requests que apuntan a `main`.
 
-Current checks:
+Checks actuales:
 
 ```txt
 npm ci
-Prisma client generation
+Generación del cliente Prisma
 npm run lint
 npm run test
 npm run build
@@ -169,23 +206,23 @@ Docker image build
 npm audit --audit-level=high
 ```
 
-The Prisma client is generated inside CI because generated Prisma output is intentionally not committed to Git. Vulnerabilities with `high` or `critical` severity fail CI. Known moderate findings are documented in `docs/vulnerability-analysis.md`.
+El cliente Prisma se genera dentro de CI porque el output generado de Prisma está intencionalmente fuera de Git. Vulnerabilidades `high` o `critical` hacen fallar CI. Los hallazgos `moderate` conocidos están documentados en `docs/vulnerability-analysis.md`.
 
 ## Infrastructure As Code
 
-The MVP includes an initial Terraform configuration for Cloudflare infrastructure:
+El MVP incluye una configuración inicial de Terraform para infraestructura Cloudflare:
 
 ```txt
 infra/terraform/cloudflare
 ```
 
-Current Terraform scope:
+Alcance actual de Terraform:
 
 ```txt
-Cloudflare R2 bucket used for tenant document storage
+Bucket Cloudflare R2 usado para almacenar documentos de tenants
 ```
 
-The existing R2 bucket was imported into Terraform state and validated with `terraform plan` returning no changes. Terraform local state, local variable files and provider cache files are intentionally ignored by Git:
+El bucket R2 existente fue importado al estado de Terraform y validado con `terraform plan`, que devolvió que no había cambios. El estado local de Terraform, archivos locales de variables y archivos de cache del provider están intencionalmente ignorados por Git:
 
 ```txt
 infra/terraform/cloudflare/.terraform/
@@ -193,25 +230,25 @@ infra/terraform/cloudflare/terraform.tfstate
 infra/terraform/cloudflare/terraform.tfvars
 ```
 
-The committed Terraform files document the expected Cloudflare R2 infrastructure without committing secrets. Prisma migrations remain managed by Prisma and CI/CD release steps, not by Terraform.
+Los archivos Terraform committeados documentan la infraestructura esperada de Cloudflare R2 sin committear secretos. Las migraciones Prisma siguen siendo administradas por Prisma y pasos de release/CI/CD, no por Terraform.
 
 ## Demo Flow
 
-This flow demonstrates the current end-to-end product locally.
+Este flujo demuestra el producto end-to-end actual localmente.
 
-### 1. Start local infrastructure
+### 1. Iniciar infraestructura local
 
 ```bash
 docker compose up -d
 ```
 
-Check services:
+Revisar servicios:
 
 ```bash
 docker compose ps
 ```
 
-Expected local services:
+Servicios locales esperados:
 
 ```txt
 PostgreSQL + pgvector
@@ -219,15 +256,15 @@ Redis
 MinIO
 ```
 
-### 2. Configure environment
+### 2. Configurar entorno
 
-Create `.env` from `.env.example` if needed:
+Crear `.env` desde `.env.example` si es necesario:
 
 ```bash
 cp .env.example .env
 ```
 
-Recommended demo settings:
+Configuración recomendada para demo:
 
 ```env
 EMBEDDING_PROVIDER=openai
@@ -238,23 +275,23 @@ OPENAI_MODEL=gpt-5-mini
 MIN_RETRIEVAL_SIMILARITY=0.5
 ```
 
-`OPENAI_API_KEY` must be configured locally. Do not commit secrets.
+`OPENAI_API_KEY` debe estar configurada localmente. No committear secretos.
 
-For a no-cost local-only demo, use:
+Para una demo local sin costo externo:
 
 ```env
 EMBEDDING_PROVIDER=local
 LLM_PROVIDER_NAME=local
 ```
 
-### 3. Run database migrations
+### 3. Ejecutar migraciones de base de datos
 
 ```bash
 npm run prisma:migrate --workspace @tenant-ai/api
 npm run prisma:generate --workspace @tenant-ai/api
 ```
 
-### 4. Start the API
+### 4. Iniciar la API
 
 ```bash
 npm run start:dev --workspace @tenant-ai/api
@@ -266,25 +303,25 @@ Health check:
 Invoke-RestMethod http://localhost:3000/api/health
 ```
 
-### 5. Prepare a tenant API key
+### 5. Preparar una API key de tenant
 
-The demo API calls use:
+Las llamadas de demo a la API usan:
 
 ```txt
 x-api-key: tai_...
 ```
 
-The API key resolves the tenant. The client must not send `tenantId`.
+La API key resuelve el tenant. El cliente no debe enviar `tenantId`.
 
-In PowerShell:
+En PowerShell:
 
 ```powershell
 $apiKey = "tai_your_tenant_api_key"
 ```
 
-### 6. Upload and ingest a document
+### 6. Subir e ingestar un documento
 
-Upload a text or PDF document:
+Subir un documento de texto o PDF:
 
 ```powershell
 curl.exe -X POST `
@@ -293,9 +330,9 @@ curl.exe -X POST `
   -F "file=@sample-document-caperucita.txt"
 ```
 
-PDF files are supported when they contain selectable text. Scanned or image-only PDFs require OCR and are outside the current MVP scope.
+Los archivos PDF son soportados cuando contienen texto seleccionable. PDFs escaneados o basados solo en imágenes requieren OCR y están fuera del alcance actual del MVP.
 
-Use the returned `id` to ingest:
+Usar el `id` devuelto para ingestar:
 
 ```powershell
 Invoke-RestMethod `
@@ -304,11 +341,11 @@ Invoke-RestMethod `
   -Headers @{"x-api-key"=$apiKey}
 ```
 
-Ingestion creates chunks, estimates token counts, generates embeddings and stores vectors in PostgreSQL using pgvector.
+La ingestion crea chunks, estima conteos de tokens, genera embeddings y almacena vectores en PostgreSQL usando pgvector.
 
-### 7. Query the API
+### 7. Consultar la API
 
-Ask a question:
+Hacer una pregunta:
 
 ```powershell
 $response = Invoke-RestMethod `
@@ -321,15 +358,15 @@ $response = Invoke-RestMethod `
 $response | ConvertTo-Json -Depth 5
 ```
 
-Expected behavior:
+Comportamiento esperado:
 
 ```txt
-answer with document-grounded response
-sources with documentName and chunkId
-usage with provider/model/tokens/context metrics
+respuesta basada en documentos
+fuentes con documentName y chunkId
+usage con provider/model/tokens/context metrics
 ```
 
-Ask an unrelated question:
+Preguntar algo no relacionado:
 
 ```powershell
 $response = Invoke-RestMethod `
@@ -342,14 +379,14 @@ $response = Invoke-RestMethod `
 $response | ConvertTo-Json -Depth 5
 ```
 
-With `MIN_RETRIEVAL_SIMILARITY=0.5`, the expected response has:
+Con `MIN_RETRIEVAL_SIMILARITY=0.5`, la respuesta esperada tiene:
 
 ```txt
 sources: []
 usage.selectedChunks: 0
 ```
 
-### 8. Review usage logs
+### 8. Revisar usage logs
 
 ```powershell
 $response = Invoke-RestMethod `
@@ -360,38 +397,38 @@ $response = Invoke-RestMethod `
 $response | ConvertTo-Json -Depth 5
 ```
 
-Usage logs are tenant-scoped and include token/context metrics when available.
+Los usage logs están acotados por tenant e incluyen métricas de tokens/contexto cuando están disponibles.
 
-### 9. Run the client demo
+### 9. Ejecutar el client demo
 
-Create:
+Crear:
 
 ```txt
 apps/client-demo/.env.local
 ```
 
-Example:
+Ejemplo:
 
 ```env
 TENANT_AI_API_URL=http://localhost:3000/api
 TENANT_AI_API_KEY=tai_your_tenant_api_key
 ```
 
-Start the demo app:
+Iniciar el demo app:
 
 ```bash
 npm run dev --workspace @tenant-ai/client-demo
 ```
 
-Open:
+Abrir:
 
 ```txt
 http://localhost:3001
 ```
 
-The demo simulates a customer application for a notary office. It calls its own Next.js server route, which then calls Tenant AI API with `x-api-key`. The browser never sees the tenant API key.
+El demo simula una aplicación cliente para una notaría. Llama a su propia ruta server-side de Next.js, que luego llama a la API de Tenant AI con `x-api-key`. El navegador nunca ve la API key del tenant.
 
-### 10. Validate the project
+### 10. Validar el proyecto
 
 ```bash
 npm run lint
@@ -399,11 +436,11 @@ npm run test
 npm run build
 ```
 
-## API Validation
+## Validación De API
 
-The API uses NestJS `ValidationPipe` with DTO classes and `class-validator` decorators to validate JSON request bodies at runtime.
+La API usa `ValidationPipe` de NestJS con clases DTO y decoradores de `class-validator` para validar bodies JSON en runtime.
 
-Global validation settings:
+Configuración global de validación:
 
 ```txt
 whitelist: true
@@ -411,41 +448,41 @@ forbidNonWhitelisted: true
 transform: true
 ```
 
-This means:
+Esto significa:
 
-- fields not declared in DTOs are rejected with `400 Bad Request`
-- required fields such as `question` are validated before reaching controllers/services
-- protected business endpoints reject client-supplied fields such as `tenantId` when they are not part of the DTO
+- campos no declarados en DTOs son rechazados con `400 Bad Request`
+- campos requeridos como `question` se validan antes de llegar a controllers/services
+- endpoints de negocio protegidos rechazan campos enviados por el cliente como `tenantId` cuando no forman parte del DTO
 
-Tenant identity must come from authenticated credentials such as `x-api-key`, not from request bodies.
+La identidad del tenant debe venir desde credenciales autenticadas como `x-api-key`, no desde request bodies.
 
-## Local Infrastructure
+## Infraestructura Local
 
-The project uses Docker Compose for local infrastructure services:
+El proyecto usa Docker Compose para servicios locales de infraestructura:
 
-- PostgreSQL with pgvector on port `5432`
-- Redis on port `6379`
-- MinIO S3-compatible storage on ports `9000` and `9001`
+- PostgreSQL con pgvector en puerto `5432`
+- Redis en puerto `6379`
+- MinIO storage compatible con S3 en puertos `9000` y `9001`
 
-Start services:
+Iniciar servicios:
 
 ```bash
 docker compose up -d
 ```
 
-Check service status:
+Revisar estado:
 
 ```bash
 docker compose ps
 ```
 
-Stop services:
+Detener servicios:
 
 ```bash
 docker compose down
 ```
 
-MinIO console:
+Consola MinIO:
 
 ```txt
 http://localhost:9001
@@ -453,7 +490,7 @@ user: minioadmin
 password: minioadmin
 ```
 
-Default local service URLs:
+URLs locales por defecto:
 
 ```env
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/tenant_ai?schema=public
@@ -472,21 +509,21 @@ OPENAI_EMBEDDING_MODEL=text-embedding-3-small
 GEMINI_API_KEY=
 ```
 
-## Storage Decision
+## Decisión De Storage
 
-Local document storage uses MinIO because it provides an S3-compatible API for development. The application should keep storage access behind a provider/adapter boundary instead of coupling business logic directly to MinIO.
+El storage local de documentos usa MinIO porque entrega una API compatible con S3 para desarrollo. La aplicación debe mantener el acceso a storage detrás de un límite provider/adapter en lugar de acoplar lógica de negocio directamente a MinIO.
 
-Planned storage direction:
+Dirección planificada de storage:
 
 ```txt
-Local development: MinIO
-Primary cloud-compatible path: S3-compatible storage such as AWS S3 or Cloudflare R2
-Future Azure option: Azure Blob Storage through a separate adapter if deployment requirements change
+Desarrollo local: MinIO
+Ruta cloud compatible principal: storage compatible con S3, como AWS S3 o Cloudflare R2
+Opción Azure futura: Azure Blob Storage mediante un adapter separado si cambian los requisitos de despliegue
 ```
 
-Storage-related services should use neutral names such as `StorageService`, `ObjectStorageService` or `S3StorageAdapter`, not domain logic tied directly to MinIO.
+Los servicios relacionados con storage deben usar nombres neutrales como `StorageService`, `ObjectStorageService` o `S3StorageAdapter`, no lógica de dominio atada directamente a MinIO.
 
-Implemented storage abstraction:
+Abstracción de storage implementada:
 
 ```txt
 apps/api/src/storage/object-storage.types.ts
@@ -495,13 +532,13 @@ apps/api/src/storage/s3-storage.adapter.ts
 apps/api/src/storage/storage.module.ts
 ```
 
-The API uses `@aws-sdk/client-s3` to communicate with S3-compatible storage. In local development, this points to MinIO through the `S3_*` environment variables.
+La API usa `@aws-sdk/client-s3` para comunicarse con storage compatible con S3. En desarrollo local, esto apunta a MinIO mediante las variables de entorno `S3_*`.
 
-Application services should depend on the `OBJECT_STORAGE` provider token and the `ObjectStoragePort` contract instead of depending directly on `S3StorageAdapter`.
+Los services de aplicación deben depender del token provider `OBJECT_STORAGE` y del contrato `ObjectStoragePort`, no directamente de `S3StorageAdapter`.
 
-The S3 adapter verifies the configured bucket before upload and creates it automatically when it does not exist.
+El adapter S3 verifica el bucket configurado antes de subir archivos y lo crea automáticamente si no existe.
 
-Current document endpoints:
+Endpoints actuales de documentos:
 
 ```txt
 POST /api/documents
@@ -510,63 +547,63 @@ POST /api/documents/upload
 POST /api/documents/:documentId/ingest
 ```
 
-All document endpoints require:
+Todos los endpoints de documentos requieren:
 
 ```txt
 x-api-key: tai_...
 ```
 
-`POST /api/documents/upload` accepts `multipart/form-data` with a `file` field. Upload validation currently allows `text/plain` and `application/pdf` documents and limits each file to 5 MB.
+`POST /api/documents/upload` acepta `multipart/form-data` con un campo `file`. La validación de upload actualmente permite documentos `text/plain` y `application/pdf`, y limita cada archivo a 5 MB.
 
-Uploaded files are stored in the configured S3-compatible bucket using tenant-scoped object keys:
+Los archivos subidos se almacenan en el bucket compatible con S3 configurado usando object keys acotadas por tenant:
 
 ```txt
 {tenantId}/documents/{timestamp}-{uuid}-{safeFileName}
 ```
 
-The document row stores `storageKey` and uses `status = uploaded` after a successful object storage upload.
+La fila del documento almacena `storageKey` y usa `status = uploaded` después de una carga exitosa en object storage.
 
-Basic ingestion currently supports plain text documents and PDFs with selectable text. The ingestion endpoint reads the stored object through the storage abstraction, extracts text, splits it into overlapping chunks, estimates a token count per chunk, stores them in `document_chunks`, and updates the document to `status = ready`.
+La ingestion básica actualmente soporta documentos de texto plano y PDFs con texto seleccionable. El endpoint de ingestion lee el objeto almacenado mediante la abstracción de storage, extrae texto, lo divide en chunks con solapamiento, estima un conteo de tokens por chunk, los almacena en `document_chunks` y actualiza el documento a `status = ready`.
 
-PDF support does not include OCR in the current MVP. Scanned PDFs or image-only PDFs require a future OCR provider.
+El soporte PDF no incluye OCR en el MVP actual. PDFs escaneados o basados solo en imágenes requieren un provider OCR futuro.
 
-Current ingestion behavior:
+Comportamiento actual de ingestion:
 
 ```txt
 POST /api/documents/:documentId/ingest
-  -> requires x-api-key
-  -> filters document by authenticated tenantId
-  -> supports text/plain and application/pdf with selectable text
-  -> creates document_chunks
-  -> stores tokenCount using Math.ceil(content.length / 4)
-  -> marks document as ready
+  -> requiere x-api-key
+  -> filtra el documento por tenantId autenticado
+  -> soporta text/plain y application/pdf con texto seleccionable
+  -> crea document_chunks
+  -> almacena tokenCount usando Math.ceil(content.length / 4)
+  -> marca el documento como ready
 ```
 
-Current embedding behavior:
+Comportamiento actual de embeddings:
 
 ```txt
 EmbeddingsModule
   -> EmbeddingsService
-  -> EMBEDDING_PROVIDER token
-  -> LocalEmbeddingProvider or OpenAiEmbeddingProvider
+  -> token EMBEDDING_PROVIDER
+  -> LocalEmbeddingProvider u OpenAiEmbeddingProvider
 ```
 
-The active embedding provider is selected with:
+El provider de embeddings activo se selecciona con:
 
 ```env
 EMBEDDING_PROVIDER=local
 ```
 
-Supported values:
+Valores soportados:
 
 ```txt
 local
 openai
 ```
 
-The local embedding provider is deterministic and does not call external AI APIs. It generates vectors with `EMBEDDING_DIMENSIONS=1536` so local development matches the production-oriented pgvector column dimension. During ingestion, each text chunk receives an embedding stored in PostgreSQL using pgvector.
+El provider local de embeddings es determinístico y no llama APIs externas de IA. Genera vectores con `EMBEDDING_DIMENSIONS=1536` para que el desarrollo local coincida con la dimensión de columna pgvector orientada a producción. Durante ingestion, cada chunk de texto recibe un embedding almacenado en PostgreSQL usando pgvector.
 
-The OpenAI embedding provider uses the official OpenAI SDK and the configured embedding model:
+El provider de embeddings de OpenAI usa el SDK oficial de OpenAI y el modelo de embeddings configurado:
 
 ```env
 EMBEDDING_PROVIDER=openai
@@ -575,57 +612,57 @@ OPENAI_EMBEDDING_MODEL=text-embedding-3-small
 EMBEDDING_DIMENSIONS=1536
 ```
 
-Automated tests mock the OpenAI embedding provider and do not call the real OpenAI API.
+Los tests automatizados mockean el provider de embeddings de OpenAI y no llaman la API real de OpenAI.
 
-When `EMBEDDING_PROVIDER=openai`, each ingestion request generates and stores OpenAI embeddings for document chunks. Each `/api/ask` request also generates an OpenAI embedding for the user question before running pgvector retrieval. This uses OpenAI API quota even if `LLM_PROVIDER_NAME=local`.
+Cuando `EMBEDDING_PROVIDER=openai`, cada solicitud de ingestion genera y almacena embeddings de OpenAI para los chunks del documento. Cada solicitud a `/api/ask` también genera un embedding OpenAI para la pregunta del usuario antes de ejecutar retrieval con pgvector. Esto usa cuota de la API de OpenAI incluso si `LLM_PROVIDER_NAME=local`.
 
-The database stores document chunk embeddings as:
+La base de datos almacena embeddings de chunks como:
 
 ```txt
 embedding vector(1536)
 ```
 
-This dimension is aligned with the planned OpenAI embedding model:
+Esta dimensión está alineada con el modelo de embeddings planificado de OpenAI:
 
 ```env
 OPENAI_EMBEDDING_MODEL=text-embedding-3-small
 ```
 
-When the embedding dimension changes, existing chunk embeddings must be regenerated. The development data created with the previous 8-dimensional local embeddings was treated as disposable test data and must not be mixed with 1536-dimensional embeddings.
+Cuando cambia la dimensión de embeddings, los chunk embeddings existentes deben regenerarse. Los datos de desarrollo creados con embeddings locales previos de 8 dimensiones se trataron como datos de prueba desechables y no deben mezclarse con embeddings de 1536 dimensiones.
 
-Changing `EMBEDDING_PROVIDER` changes how future embeddings are generated. Existing documents should be reingested when switching from local embeddings to OpenAI embeddings so all stored vectors are generated by the same provider/model/dimension combination.
+Cambiar `EMBEDDING_PROVIDER` cambia cómo se generan futuros embeddings. Los documentos existentes deben reingestarse al cambiar de embeddings locales a embeddings OpenAI para que todos los vectores almacenados sean generados por la misma combinación provider/modelo/dimensión.
 
-Before persisting chunk embeddings, ingestion validates that the returned vector length matches the provider-reported dimension and that both match `EMBEDDING_DIMENSIONS`. This prevents storing vectors incompatible with the configured `vector(1536)` column.
+Antes de persistir embeddings de chunks, ingestion valida que el largo del vector devuelto coincida con la dimensión reportada por el provider y que ambos coincidan con `EMBEDDING_DIMENSIONS`. Esto evita almacenar vectores incompatibles con la columna configurada `vector(1536)`.
 
-Each stored chunk also includes `tokenCount`, currently calculated with the MVP estimate:
+Cada chunk almacenado también incluye `tokenCount`, calculado actualmente con la estimación MVP:
 
 ```txt
 Math.ceil(content.length / 4)
 ```
 
-This value is used by the context budget selection flow before sending retrieved context to an LLM provider.
+Este valor es usado por el flujo de selección de presupuesto de contexto antes de enviar contexto recuperado a un provider LLM.
 
-Context budget selection is implemented as an isolated service:
+La selección de presupuesto de contexto está implementada como un service aislado:
 
 ```txt
 ContextSelectionService
-  -> receives tenant-filtered retrieval chunks
-  -> preserves retrieval order
-  -> uses tokenCount or Math.ceil(content.length / 4)
-  -> selects chunks within maxContextTokens and candidateLimit
+  -> recibe chunks de retrieval ya filtrados por tenant
+  -> preserva el orden de retrieval
+  -> usa tokenCount o Math.ceil(content.length / 4)
+  -> selecciona chunks dentro de maxContextTokens y candidateLimit
 ```
 
-This service is connected to the `/api/ask` flow. `ChatService` retrieves candidate chunks, applies context selection, and sends only selected chunks to `LlmService`.
+Este service está conectado al flujo `/api/ask`. `ChatService` recupera chunks candidatos, aplica selección de contexto y envía solo los chunks seleccionados a `LlmService`.
 
-Future Gemini embedding adapters can be added later behind the same `EmbeddingProvider` contract.
+Futuros adapters de embeddings Gemini pueden agregarse después detrás del mismo contrato `EmbeddingProvider`.
 
-Current retrieval endpoint:
+Endpoint actual de retrieval:
 
 ```txt
 POST /api/retrieval/search
 ```
 
-Request body:
+Body de la solicitud:
 
 ```json
 {
@@ -634,47 +671,47 @@ Request body:
 }
 ```
 
-The endpoint requires:
+El endpoint requiere:
 
 ```txt
 x-api-key: tai_...
 ```
 
-Retrieval behavior:
+Comportamiento de retrieval:
 
 ```txt
-query text
-  -> local embedding
-  -> pgvector similarity search
-  -> tenantId filter from API key
-  -> chunks with document source metadata and tokenCount
+texto de consulta
+  -> embedding local
+  -> búsqueda de similitud con pgvector
+  -> filtro tenantId desde API key
+  -> chunks con metadata de fuente del documento y tokenCount
 ```
 
-Retrieval uses pgvector cosine distance through the `<=>` operator and exposes it as cosine similarity:
+Retrieval usa distancia coseno de pgvector mediante el operador `<=>` y la expone como similitud coseno:
 
 ```txt
 similarity = 1 - cosine_distance
 ```
 
-Higher similarity values are more relevant.
+Valores más altos de similarity son más relevantes.
 
-Retrieval can optionally filter weak matches using:
+Retrieval puede filtrar coincidencias débiles opcionalmente usando:
 
 ```env
 MIN_RETRIEVAL_SIMILARITY=
 ```
 
-When this variable is empty, no similarity threshold is applied. When configured, chunks with `similarity < MIN_RETRIEVAL_SIMILARITY` are discarded before the response is returned to the caller or used by `/api/ask`.
+Cuando esta variable está vacía, no se aplica threshold de similarity. Cuando está configurada, los chunks con `similarity < MIN_RETRIEVAL_SIMILARITY` se descartan antes de devolver la respuesta al caller o antes de ser usados por `/api/ask`.
 
-This threshold helps reduce irrelevant sources, unnecessary context tokens and hallucination risk. The value should be chosen empirically by comparing similarity values for relevant and irrelevant questions. During local OpenAI-backed testing, `MIN_RETRIEVAL_SIMILARITY=0.5` worked as an initial development threshold, but it should not be treated as a universal production value.
+Este threshold ayuda a reducir fuentes irrelevantes, tokens de contexto innecesarios y riesgo de alucinación. El valor debe elegirse empíricamente comparando valores de similarity para preguntas relevantes e irrelevantes. Durante pruebas locales respaldadas por OpenAI, `MIN_RETRIEVAL_SIMILARITY=0.5` funcionó como threshold inicial de desarrollo, pero no debe tratarse como valor universal de producción.
 
-Current ask endpoint:
+Endpoint actual de ask:
 
 ```txt
 POST /api/ask
 ```
 
-Request body:
+Body de la solicitud:
 
 ```json
 {
@@ -683,57 +720,57 @@ Request body:
 }
 ```
 
-The endpoint requires:
+El endpoint requiere:
 
 ```txt
 x-api-key: tai_...
 ```
 
-Current ask behavior:
+Comportamiento actual de ask:
 
 ```txt
 question
-  -> tenant-scoped retrieval
-  -> context selection
+  -> retrieval acotado al tenant
+  -> selección de contexto
   -> LlmService
-  -> local LLM provider
+  -> provider LLM local
   -> sources
-  -> usage metadata shape
+  -> shape de metadata usage
 ```
 
-Context selection settings:
+Configuración de selección de contexto:
 
 ```env
 MAX_CONTEXT_TOKENS=8000
 MAX_CHUNKS_PER_QUERY=5
 ```
 
-If these variables are not defined, the API uses the same default values. A client may request fewer chunks with `limit`, but cannot exceed `MAX_CHUNKS_PER_QUERY`.
+Si estas variables no están definidas, la API usa los mismos valores por defecto. Un cliente puede solicitar menos chunks con `limit`, pero no puede exceder `MAX_CHUNKS_PER_QUERY`.
 
-If no retrieved chunk fits the context budget, `/api/ask` returns a controlled response and does not call the LLM provider:
+Si ningún chunk recuperado cabe dentro del presupuesto de contexto, `/api/ask` devuelve una respuesta controlada y no llama al provider LLM:
 
 ```txt
 No relevant context could be selected for this request.
 ```
 
-`ChatService` delegates answer generation to `LlmService`. The default development provider is local, so the `/ask` flow can run without external API keys or API cost. The project also includes an OpenAI LLM provider behind the same provider contract, so the active provider can be changed through environment configuration without coupling the chat module directly to the OpenAI SDK.
+`ChatService` delega la generación de respuestas a `LlmService`. El provider por defecto de desarrollo es local, por lo que el flujo `/ask` puede ejecutarse sin API keys externas ni costo de API. El proyecto también incluye un provider OpenAI LLM detrás del mismo contrato de provider, por lo que el provider activo puede cambiarse mediante configuración de entorno sin acoplar el módulo chat directamente al SDK de OpenAI.
 
-The active LLM provider is selected with:
+El provider LLM activo se selecciona con:
 
 ```env
 LLM_PROVIDER_NAME=local
 ```
 
-Supported values:
+Valores soportados:
 
 ```txt
 local
 openai
 ```
 
-Unsupported values fail at application startup with a clear error so invalid provider configuration is detected early.
+Valores no soportados fallan al iniciar la aplicación con un error claro para detectar temprano configuraciones inválidas.
 
-The OpenAI provider uses the official OpenAI SDK and the Responses API. To enable it locally, configure:
+El provider OpenAI usa el SDK oficial de OpenAI y la Responses API. Para habilitarlo localmente, configurar:
 
 ```env
 LLM_PROVIDER_NAME=openai
@@ -741,11 +778,11 @@ OPENAI_API_KEY=your-api-key
 OPENAI_MODEL=gpt-5-mini
 ```
 
-`OPENAI_API_KEY` is required only when the OpenAI provider is actually used. Keeping `LLM_PROVIDER_NAME=local` allows development and automated tests to run without real OpenAI calls.
+`OPENAI_API_KEY` solo es requerida cuando se usa efectivamente el provider OpenAI. Mantener `LLM_PROVIDER_NAME=local` permite que el desarrollo y los tests automatizados se ejecuten sin llamadas reales a OpenAI.
 
-The OpenAI provider validates that the request contains a non-empty question and at least one non-empty retrieved context before calling the OpenAI API. This avoids unnecessary external calls and token usage when the RAG flow has no usable context.
+El provider OpenAI valida que la solicitud tenga una pregunta no vacía y al menos un contexto recuperado no vacío antes de llamar a la API de OpenAI. Esto evita llamadas externas y uso de tokens innecesarios cuando el flujo RAG no tiene contexto utilizable.
 
-For a full OpenAI-backed RAG test, use:
+Para una prueba RAG completa respaldada por OpenAI, usar:
 
 ```env
 EMBEDDING_PROVIDER=openai
@@ -756,27 +793,27 @@ OPENAI_EMBEDDING_MODEL=text-embedding-3-small
 EMBEDDING_DIMENSIONS=1536
 ```
 
-With this configuration, `/api/ask` uses OpenAI for both query embeddings and answer generation. The endpoint returns generated answers, source references and real token usage when the provider response includes it.
+Con esta configuración, `/api/ask` usa OpenAI tanto para embeddings de consulta como para generación de respuestas. El endpoint devuelve respuestas generadas, referencias a fuentes y uso real de tokens cuando la respuesta del provider lo incluye.
 
-For regular development without external API cost, use:
+Para desarrollo regular sin costo externo de API, usar:
 
 ```env
 EMBEDDING_PROVIDER=local
 LLM_PROVIDER_NAME=local
 ```
 
-Future Gemini providers should be added behind the existing `LlmProvider` contract. External provider adapters must receive only tenant-filtered context from retrieval and must not query documents or resolve tenant ownership themselves.
+Futuros providers Gemini deben agregarse detrás del contrato existente `LlmProvider`. Los adapters de providers externos deben recibir solo contexto filtrado por tenant desde retrieval y no deben consultar documentos ni resolver ownership del tenant por sí mismos.
 
-Current LLM abstraction:
+Abstracción LLM actual:
 
 ```txt
 ChatService
   -> LlmService
-  -> LLM_PROVIDER token
-  -> LocalLlmProvider or OpenAiLlmProvider
+  -> token LLM_PROVIDER
+  -> LocalLlmProvider u OpenAiLlmProvider
 ```
 
-The local provider returns an answer based on retrieved context and preserves the final response shape expected by the product:
+El provider local devuelve una respuesta basada en el contexto recuperado y preserva el shape de respuesta final esperado por el producto:
 
 ```json
 {
@@ -803,51 +840,51 @@ The local provider returns an answer based on retrieved context and preserves th
 }
 ```
 
-When no context can be selected within the configured budget, the endpoint returns a controlled response and keeps the same usage shape.
+Cuando no se puede seleccionar contexto dentro del presupuesto configurado, el endpoint devuelve una respuesta controlada y mantiene el mismo shape de `usage`.
 
-Automated tests mock external LLM providers. They must not call real OpenAI or Gemini APIs.
+Los tests automatizados mockean providers LLM externos. No deben llamar APIs reales de OpenAI o Gemini.
 
-Each `/api/ask` request is persisted in `usage_logs` through `UsageModule`. Token and cost fields are currently stored as `null` because the local retrieval-only implementation does not call a provider that returns token usage. Context selection metrics are persisted for usage visibility.
+Cada solicitud `/api/ask` se persiste en `usage_logs` mediante `UsageModule`. Los campos de tokens y costo actualmente se almacenan como `null` cuando la implementación local retrieval-only no llama a un provider que entregue uso de tokens. Las métricas de selección de contexto se persisten para visibilidad de uso.
 
-Current usage behavior:
+Comportamiento actual de uso:
 
 ```txt
 POST /api/ask
-  -> creates usage_logs row
-  -> tenantId from x-api-key
-  -> provider/model from active LLM provider
-  -> token fields from provider when available
+  -> crea fila usage_logs
+  -> tenantId desde x-api-key
+  -> provider/model desde el provider LLM activo
+  -> campos token desde el provider cuando estén disponibles
   -> contextTokens, selectedChunks, maxContextTokens, candidateLimit
 ```
 
-With `LLM_PROVIDER_NAME=local`, token fields are stored as `null`. With `LLM_PROVIDER_NAME=openai`, real token usage is returned and persisted when OpenAI includes usage metadata. `estimatedCostUsd` is currently stored as `null`; pricing calculation can be added later once pricing configuration is defined.
+Con `LLM_PROVIDER_NAME=local`, los campos token se almacenan como `null`. Con `LLM_PROVIDER_NAME=openai`, el uso real de tokens se devuelve y persiste cuando OpenAI incluye metadata de uso. `estimatedCostUsd` actualmente se almacena como `null`; el cálculo de pricing puede agregarse más adelante cuando se defina una configuración de precios.
 
-Current usage visibility endpoint:
+Endpoint actual de visibilidad de uso:
 
 ```txt
 GET /api/usage?page=1&limit=50&startDate=2026-05-01&endDate=2026-05-29
 ```
 
-The endpoint requires:
+El endpoint requiere:
 
 ```txt
 x-api-key: tai_...
 ```
 
-It returns usage logs for the authenticated tenant only. The client does not send `tenantId`; the API resolves it from the API key.
+Devuelve usage logs solo para el tenant autenticado. El cliente no envía `tenantId`; la API lo resuelve desde la API key.
 
 Query parameters:
 
 ```txt
-page      optional, default 1
-limit     optional, default 50, max 100
-startDate optional, YYYY-MM-DD
-endDate   optional, YYYY-MM-DD
+page      opcional, default 1
+limit     opcional, default 50, máximo 100
+startDate opcional, YYYY-MM-DD
+endDate   opcional, YYYY-MM-DD
 ```
 
-If `startDate` and `endDate` are omitted, the endpoint uses the current calendar month. If one date is provided, the other one is required. The maximum custom date range is 90 days.
+Si `startDate` y `endDate` se omiten, el endpoint usa el mes calendario actual. Si se entrega una fecha, la otra es requerida. El rango máximo personalizado es de 90 días.
 
-Example response:
+Ejemplo de respuesta:
 
 ```json
 {
@@ -881,11 +918,11 @@ Example response:
 }
 ```
 
-## Database And Prisma
+## Base De Datos Y Prisma
 
-The API uses Prisma ORM with PostgreSQL. This project currently uses Prisma 7, which keeps the database URL in `apps/api/prisma.config.ts` instead of inside `schema.prisma`.
+La API usa Prisma ORM con PostgreSQL. Este proyecto usa actualmente Prisma 7, que mantiene la URL de base de datos en `apps/api/prisma.config.ts` en lugar de declararla dentro de `schema.prisma`.
 
-Important files:
+Archivos importantes:
 
 ```txt
 apps/api/prisma/schema.prisma
@@ -895,27 +932,27 @@ apps/api/src/prisma/prisma.module.ts
 apps/api/src/prisma/prisma.service.ts
 ```
 
-Apply local migrations:
+Aplicar migraciones locales:
 
 ```bash
 npm run prisma:migrate --workspace @tenant-ai/api -- --name init
 ```
 
-Generate the Prisma client:
+Generar el cliente Prisma:
 
 ```bash
 npm run prisma:generate --workspace @tenant-ai/api
 ```
 
-Open Prisma Studio:
+Abrir Prisma Studio:
 
 ```bash
 npm run prisma:studio --workspace @tenant-ai/api
 ```
 
-Prisma client output is generated in `apps/api/generated/prisma` and is intentionally ignored by Git. It can be regenerated from `schema.prisma`.
+El output del cliente Prisma se genera en `apps/api/generated/prisma` y está intencionalmente ignorado por Git. Puede regenerarse desde `schema.prisma`.
 
-Current initial models:
+Modelos actuales:
 
 ```txt
 Tenant
@@ -925,49 +962,49 @@ DocumentChunk
 UsageLog
 ```
 
-The `tenants` table is the base entity for multi-tenant isolation. Future business entities such as API keys, documents, chunks, conversations and usage logs must include `tenantId`.
+La tabla `tenants` es la entidad base para el aislamiento multi-tenant. Futuras entidades de negocio como API keys, documentos, chunks, conversaciones y usage logs deben incluir `tenantId`.
 
-## API Key Authentication
+## Autenticación Con API Key
 
-API keys are tenant-scoped credentials used to authenticate future business endpoints such as document upload, retrieval, chat and usage visibility.
+Las API keys son credenciales acotadas por tenant usadas para autenticar endpoints de negocio como carga de documentos, retrieval, chat y visibilidad de uso.
 
-Create an API key for a tenant:
+Crear una API key para un tenant:
 
 ```txt
 POST /api/tenants/:tenantId/api-keys
 ```
 
-List API keys for a tenant:
+Listar API keys de un tenant:
 
 ```txt
 GET /api/tenants/:tenantId/api-keys
 ```
 
-The raw API key is returned only once during creation. The database stores:
+La API key en texto plano se devuelve solo una vez durante la creación. La base de datos almacena:
 
-- `keyHash`: HMAC-SHA256 hash using `API_KEY_PEPPER`
-- `keyPrefix`: short visible prefix for identification
-- `tenantId`: owner tenant
-- `revokedAt`: nullable revocation timestamp
+- `keyHash`: hash HMAC-SHA256 usando `API_KEY_PEPPER`
+- `keyPrefix`: prefijo corto visible para identificación
+- `tenantId`: tenant propietario
+- `revokedAt`: timestamp nullable de revocación
 
-Protected endpoints will receive API keys through this header:
+Los endpoints protegidos reciben API keys mediante este header:
 
 ```txt
 x-api-key: tai_...
 ```
 
-`ApiKeyAuthGuard` validates the header, resolves the owning tenant and attaches authenticated API key metadata to the request. Business endpoints must use the tenant resolved from the API key instead of trusting `tenantId` from request bodies.
+`ApiKeyAuthGuard` valida el header, resuelve el tenant propietario y adjunta metadata de API key autenticada al request. Los endpoints de negocio deben usar el tenant resuelto desde la API key en lugar de confiar en `tenantId` desde request bodies.
 
-## Vulnerability Tracking
+## Seguimiento De Vulnerabilidades
 
-Development vulnerability findings are documented in:
+Los hallazgos de vulnerabilidades durante el desarrollo están documentados en:
 
 ```txt
 docs/vulnerability-analysis.md
 ```
 
-This includes the current `npm audit` finding related to Prisma development tooling and the rationale for monitoring it instead of applying a breaking automatic downgrade.
+Esto incluye el hallazgo actual de `npm audit` relacionado con tooling de desarrollo de Prisma y la razón para monitorearlo en vez de aplicar un downgrade automático incompatible.
 
-## Documentation Status
+## Estado De Documentación
 
-This README will be updated as setup, environment variables, API endpoints and deployment instructions are defined.
+Este README se actualizará cuando cambien setup, variables de entorno, endpoints de API e instrucciones de despliegue.

@@ -1,48 +1,48 @@
-# Cloud Deployment
+# Despliegue Cloud
 
-This document describes the current MVP cloud deployment validated for the Tenant AI platform.
+Este documento describe el despliegue cloud actual validado para el MVP de Tenant AI.
 
-The goal of this deployment is to demonstrate that the platform can run outside the local development environment using managed cloud services while preserving the same API-first and multi-tenant architecture.
+El objetivo de este despliegue es demostrar que la plataforma puede ejecutarse fuera del entorno local de desarrollo usando servicios cloud administrados, manteniendo la misma arquitectura API-first y multi-tenant.
 
-## Cloud Target
+## Target Cloud
 
-Current MVP target:
+Target actual del MVP:
 
 ```txt
 Railway
-  -> NestJS API running from Dockerfile
-  -> PostgreSQL with pgvector
+  -> API NestJS ejecutándose desde Dockerfile
+  -> PostgreSQL con pgvector
 
 Cloudflare
-  -> R2 object storage for uploaded documents
-  -> Workers deployment for the customer demo app
+  -> R2 object storage para documentos subidos
+  -> Workers deployment para la aplicación customer demo
 
 OpenAI
-  -> text embeddings
-  -> LLM answer generation
+  -> embeddings de texto
+  -> generación de respuestas con LLM
 ```
 
-Planned DevOps additions:
+Adiciones DevOps planificadas:
 
 ```txt
 GitHub Actions
   -> npm ci
-  -> Prisma client generation
+  -> generación del cliente Prisma
   -> lint/test/build
-  -> Docker image validation
+  -> validación de imagen Docker
   -> npm audit --audit-level=high
-  -> future Prisma migrate deploy
+  -> futuro Prisma migrate deploy
 
 Terraform
-  -> Cloudflare R2 bucket represented as infrastructure as code
-  -> future infrastructure-as-code expansion
+  -> bucket Cloudflare R2 representado como infrastructure as code
+  -> futura expansión de infrastructure as code
 ```
 
-## Railway API
+## API En Railway
 
-The API service is deployed from the repository using the root `Dockerfile`.
+El service de API se despliega desde el repositorio usando el `Dockerfile` ubicado en la raíz.
 
-Railway service configuration:
+Configuración del service en Railway:
 
 ```txt
 Source repo: Janeitor/tenant-ai-platform
@@ -54,29 +54,29 @@ Start command: empty
 Healthcheck path: /api/health
 ```
 
-The container start command is defined in the Dockerfile:
+El comando de inicio del contenedor está definido en el Dockerfile:
 
 ```txt
 node dist/src/main.js
 ```
 
-The NestJS API reads the runtime port from:
+La API NestJS lee el puerto de runtime desde:
 
 ```env
 PORT=3000
 ```
 
-Railway exposes the service through a public generated domain. The API base URL uses the global NestJS prefix:
+Railway expone el service mediante un dominio público generado. La URL base de la API usa el prefijo global de NestJS:
 
 ```txt
 https://<railway-domain>/api
 ```
 
-## Railway PostgreSQL
+## PostgreSQL En Railway
 
-The database service is Railway PostgreSQL.
+El service de base de datos es Railway PostgreSQL.
 
-The `pgvector` extension was enabled and validated with:
+La extensión `pgvector` fue habilitada y validada con:
 
 ```sql
 CREATE EXTENSION IF NOT EXISTS vector;
@@ -86,25 +86,25 @@ FROM pg_extension
 WHERE extname = 'vector';
 ```
 
-Expected result:
+Resultado esperado:
 
 ```txt
 vector
 ```
 
-The API service uses Railway's internal database reference:
+El service de API usa la referencia interna de base de datos de Railway:
 
 ```env
 DATABASE_URL=${{Postgres.DATABASE_URL}}
 ```
 
-For local manual migrations against the cloud database, Railway's public database URL must be used instead:
+Para migraciones manuales locales contra la base de datos cloud, se debe usar la URL pública de base de datos de Railway:
 
 ```txt
 DATABASE_PUBLIC_URL
 ```
 
-In PowerShell, it is temporarily assigned to `DATABASE_URL` because Prisma expects that variable name:
+En PowerShell, se asigna temporalmente a `DATABASE_URL` porque Prisma espera ese nombre de variable:
 
 ```powershell
 $env:DATABASE_URL = "postgresql://..."
@@ -113,25 +113,25 @@ npm run prisma:generate --workspace @tenant-ai/api
 Remove-Item Env:DATABASE_URL
 ```
 
-This manual migration step is temporary. The production-oriented future flow should use:
+Este paso manual de migración es temporal. El flujo futuro orientado a producción debe usar:
 
 ```txt
 prisma migrate deploy
 ```
 
-from CI/CD or a controlled deploy step.
+desde CI/CD o desde un paso controlado de despliegue.
 
 ## Cloudflare R2
 
-Cloudflare R2 is used as S3-compatible object storage for uploaded documents.
+Cloudflare R2 se usa como object storage compatible con S3 para documentos subidos.
 
-Current bucket:
+Bucket actual:
 
 ```txt
 tenant-ai-documents
 ```
 
-The API uses the existing storage adapter with the following Railway variables:
+La API usa el adapter de storage existente con las siguientes variables en Railway:
 
 ```env
 S3_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
@@ -141,44 +141,44 @@ S3_ACCESS_KEY=<r2-access-key-id>
 S3_SECRET_KEY=<r2-secret-access-key>
 ```
 
-Important naming detail:
+Detalle importante de nombres:
 
 ```txt
-The current S3StorageAdapter expects S3_ACCESS_KEY and S3_SECRET_KEY.
-It does not read S3_ACCESS_KEY_ID or S3_SECRET_ACCESS_KEY.
+El S3StorageAdapter actual espera S3_ACCESS_KEY y S3_SECRET_KEY.
+No lee S3_ACCESS_KEY_ID ni S3_SECRET_ACCESS_KEY.
 ```
 
-Uploaded documents are stored with tenant-scoped keys:
+Los documentos subidos se almacenan con keys acotadas por tenant:
 
 ```txt
 {tenantId}/documents/{timestamp}-{uuid}-{safeFileName}
 ```
 
-## Terraform Infrastructure As Code
+## Terraform Como Infrastructure As Code
 
-The MVP includes an initial Terraform configuration for Cloudflare resources:
+El MVP incluye una configuración inicial de Terraform para recursos Cloudflare:
 
 ```txt
 infra/terraform/cloudflare
 ```
 
-Current scope:
+Alcance actual:
 
 ```txt
 cloudflare_r2_bucket.documents
   -> tenant-ai-documents
 ```
 
-This means the Cloudflare R2 bucket used by the API is represented as infrastructure as code. The bucket already existed during the MVP cloud setup, so it was imported into Terraform state instead of being recreated.
+Esto significa que el bucket Cloudflare R2 usado por la API está representado como infrastructure as code. El bucket ya existía durante la configuración cloud del MVP, por lo que fue importado al estado de Terraform en lugar de ser recreado.
 
-Validated Terraform result:
+Resultado Terraform validado:
 
 ```txt
 terraform plan
   -> No changes. Your infrastructure matches the configuration.
 ```
 
-Committed Terraform files:
+Archivos Terraform committeados:
 
 ```txt
 infra/terraform/cloudflare/.terraform.lock.hcl
@@ -189,7 +189,7 @@ infra/terraform/cloudflare/terraform.tfvars.example
 infra/terraform/cloudflare/variables.tf
 ```
 
-Files intentionally not committed:
+Archivos intencionalmente no committeados:
 
 ```txt
 infra/terraform/cloudflare/.terraform/
@@ -197,21 +197,21 @@ infra/terraform/cloudflare/terraform.tfstate
 infra/terraform/cloudflare/terraform.tfvars
 ```
 
-Rationale:
+Razón:
 
 ```txt
-.terraform/ contains local provider/cache data
-terraform.tfstate contains real infrastructure state
-terraform.tfvars can contain account IDs, tokens or environment-specific values
+.terraform/ contiene datos locales de provider/cache
+terraform.tfstate contiene estado real de infraestructura
+terraform.tfvars puede contener account IDs, tokens o valores específicos del entorno
 ```
 
-Terraform is currently used only for infrastructure resources. It does not manage Prisma migrations, tenant data, API keys or application secrets.
+Terraform se usa actualmente solo para recursos de infraestructura. No administra migraciones de Prisma, datos de tenants, API keys ni secretos de aplicación.
 
-## OpenAI Configuration
+## Configuración OpenAI
 
-The cloud deployment uses OpenAI for embeddings and answer generation.
+El despliegue cloud usa OpenAI para embeddings y generación de respuestas.
 
-Railway API variables:
+Variables de Railway para la API:
 
 ```env
 EMBEDDING_PROVIDER=openai
@@ -225,32 +225,32 @@ MAX_CONTEXT_TOKENS=8000
 MAX_CHUNKS_PER_QUERY=5
 ```
 
-The OpenAI API key must be created in OpenAI Platform. A ChatGPT Plus subscription alone is not enough to use the API.
+La API key de OpenAI debe crearse en OpenAI Platform. Una suscripción de ChatGPT Plus por sí sola no permite usar la API.
 
-## Cloudflare Workers Client Demo
+## Client Demo En Cloudflare Workers
 
-The customer demo app is deployed to Cloudflare Workers using OpenNext for Cloudflare.
+La aplicación customer demo se despliega en Cloudflare Workers usando OpenNext para Cloudflare.
 
-This is required because the demo is not a purely static site. It includes a server-side Next.js route:
+Esto es necesario porque el demo no es un sitio puramente estático. Incluye una ruta server-side de Next.js:
 
 ```txt
 apps/client-demo/src/app/api/ask/route.ts
 ```
 
-That route keeps the tenant API key out of the browser and forwards questions to the Railway API with:
+Esa ruta mantiene la API key del tenant fuera del navegador y reenvía preguntas a la API de Railway con:
 
 ```txt
 x-api-key: tai_...
 ```
 
-Implemented files:
+Archivos implementados:
 
 ```txt
 apps/client-demo/open-next.config.ts
 apps/client-demo/wrangler.jsonc
 ```
 
-Client demo build scripts:
+Scripts de build del client demo:
 
 ```txt
 npm run build:cloudflare --workspace @tenant-ai/client-demo
@@ -258,7 +258,7 @@ npm run preview:cloudflare --workspace @tenant-ai/client-demo
 npm run deploy:cloudflare --workspace @tenant-ai/client-demo
 ```
 
-Cloudflare Worker deployment settings:
+Configuración de deployment del Cloudflare Worker:
 
 ```txt
 Repository: Janeitor/tenant-ai-platform
@@ -267,31 +267,31 @@ Build command: npm run build:cloudflare --workspace @tenant-ai/client-demo
 Deploy command: npx wrangler deploy --config apps/client-demo/wrangler.jsonc
 ```
 
-Runtime variables:
+Variables de runtime:
 
 ```env
 TENANT_AI_API_URL=https://<railway-domain>/api
 TENANT_AI_API_KEY=<tenant-api-key>
 ```
 
-Security requirement:
+Requisito de seguridad:
 
 ```txt
-TENANT_AI_API_KEY must be configured as a Cloudflare secret.
-TENANT_AI_API_URL may be plaintext.
+TENANT_AI_API_KEY debe configurarse como secret de Cloudflare.
+TENANT_AI_API_URL puede quedar como plaintext.
 ```
 
-Validated public demo URL pattern:
+Patrón validado de URL pública del demo:
 
 ```txt
 https://<worker-name>.<cloudflare-account>.workers.dev
 ```
 
-The deployed demo was validated by asking a question from the notary-style intranet UI and receiving an answer from the Railway API using tenant-scoped document retrieval.
+El demo desplegado fue validado haciendo una pregunta desde la UI tipo intranet notarial y recibiendo una respuesta desde la API de Railway usando retrieval acotado al tenant.
 
-## Required Railway API Variables
+## Variables Requeridas En Railway Para La API
 
-The API service requires:
+El service de API requiere:
 
 ```env
 NODE_ENV=production
@@ -317,32 +317,32 @@ MAX_CONTEXT_TOKENS=8000
 MAX_CHUNKS_PER_QUERY=5
 ```
 
-Do not commit secrets. Configure them only through Railway variables or a future secret manager.
+No committear secretos. Configurarlos solo mediante variables de Railway o mediante un futuro secret manager.
 
-## Validated Cloud Flow
+## Flujo Cloud Validado
 
-The following flow was validated in the cloud environment:
+El siguiente flujo fue validado en el entorno cloud:
 
 ```txt
-1. Railway API healthcheck
-2. Prisma migrations applied to Railway PostgreSQL
-3. Tenant created
-4. Tenant API key created
-5. Protected document endpoint accessed with x-api-key
-6. PDF uploaded through Railway API
-7. PDF stored in Cloudflare R2
-8. Document ingested
-9. Text extracted from PDF
-10. Chunks created
-11. OpenAI embeddings generated
-12. Vectors stored in PostgreSQL pgvector
-13. /api/ask answered using retrieved tenant context
-14. /api/usage returned persisted usage logs
-15. Cloudflare Worker client demo called the Railway API through a server-side route
-16. Tenant API key remained configured as a Cloudflare secret
+1. Healthcheck de la API en Railway
+2. Migraciones Prisma aplicadas a Railway PostgreSQL
+3. Tenant creado
+4. API key del tenant creada
+5. Endpoint protegido de documentos accedido con x-api-key
+6. PDF subido mediante la API en Railway
+7. PDF almacenado en Cloudflare R2
+8. Documento ingestado
+9. Texto extraído desde PDF
+10. Chunks creados
+11. Embeddings generados con OpenAI
+12. Vectores almacenados en PostgreSQL pgvector
+13. /api/ask respondió usando contexto del tenant
+14. /api/usage devolvió usage logs persistidos
+15. El client demo en Cloudflare Worker llamó a la API de Railway mediante una ruta server-side
+16. La API key del tenant se mantuvo configurada como secret de Cloudflare
 ```
 
-Example validation commands:
+Comandos de validación de ejemplo:
 
 ```powershell
 $apiUrl = "https://<railway-domain>/api"
@@ -350,7 +350,7 @@ $apiUrl = "https://<railway-domain>/api"
 Invoke-RestMethod "$apiUrl/health"
 ```
 
-Create a tenant:
+Crear un tenant:
 
 ```powershell
 $tenant = Invoke-RestMethod `
@@ -360,7 +360,7 @@ $tenant = Invoke-RestMethod `
   -Body '{"name":"Notaria Demo","slug":"notaria-demo"}'
 ```
 
-Create a tenant API key:
+Crear una API key de tenant:
 
 ```powershell
 $apiKeyResponse = Invoke-RestMethod `
@@ -370,7 +370,7 @@ $apiKeyResponse = Invoke-RestMethod `
   -Body '{"name":"Client demo key"}'
 ```
 
-Upload a PDF:
+Subir un PDF:
 
 ```powershell
 $document = curl.exe -X POST `
@@ -381,7 +381,7 @@ $document = curl.exe -X POST `
 $documentObject = $document | ConvertFrom-Json
 ```
 
-Ingest the document:
+Ingestar el documento:
 
 ```powershell
 Invoke-RestMethod `
@@ -390,7 +390,7 @@ Invoke-RestMethod `
   -Headers @{"x-api-key"=$apiKey}
 ```
 
-Ask a question:
+Hacer una pregunta:
 
 ```powershell
 $response = Invoke-RestMethod `
@@ -403,7 +403,7 @@ $response = Invoke-RestMethod `
 $response | ConvertTo-Json -Depth 5
 ```
 
-Review usage logs:
+Revisar usage logs:
 
 ```powershell
 $usage = Invoke-RestMethod `
@@ -414,37 +414,37 @@ $usage = Invoke-RestMethod `
 $usage | ConvertTo-Json -Depth 5
 ```
 
-## Current Manual Steps
+## Pasos Manuales Actuales
 
-The current cloud deployment still includes manual steps:
+El despliegue cloud actual todavía incluye pasos manuales:
 
 ```txt
-Railway service setup
-Cloudflare R2 bucket setup
-R2 API token creation
-Railway variable configuration
-Cloudflare Worker variable/secret configuration
-Prisma migrations from local terminal using DATABASE_PUBLIC_URL
+setup del service en Railway
+setup del bucket Cloudflare R2
+creación del R2 API token
+configuración de variables en Railway
+configuración de variables/secrets en Cloudflare Worker
+migraciones Prisma desde terminal local usando DATABASE_PUBLIC_URL
 ```
 
-These are acceptable for the first cloud validation, but should be automated or documented as controlled release steps before final delivery.
+Estos pasos son aceptables para la primera validación cloud, pero deben automatizarse o documentarse como pasos controlados de release antes de una entrega productiva.
 
-## GitHub Actions CI
+## CI Con GitHub Actions
 
-The project includes a CI workflow:
+El proyecto incluye un workflow de CI:
 
 ```txt
 .github/workflows/ci.yml
 ```
 
-It runs on:
+Se ejecuta en:
 
 ```txt
-push to main
-pull_request to main
+push a main
+pull_request a main
 ```
 
-Current validation steps:
+Pasos de validación actuales:
 
 ```txt
 Checkout repository
@@ -458,46 +458,46 @@ docker build -t tenant-ai-api:ci .
 npm audit --audit-level=high
 ```
 
-The Prisma client generation step is required because:
+El paso de generación del cliente Prisma es requerido porque:
 
 ```txt
 apps/api/generated/prisma
 ```
 
-is intentionally ignored by Git. CI runs on a clean machine, so the generated client must be recreated before tests and builds can import:
+está intencionalmente ignorado por Git. CI se ejecuta en una máquina limpia, por lo que el cliente generado debe recrearse antes de que tests y builds puedan importar:
 
 ```txt
 #prisma-client
 ```
 
-The workflow uses a dummy `DATABASE_URL` for Prisma generation. `prisma generate` needs a valid database URL format through Prisma 7 configuration, but it does not need to connect to the database for client generation.
+El workflow usa un `DATABASE_URL` dummy para la generación de Prisma. `prisma generate` necesita un formato válido de URL de base de datos mediante la configuración de Prisma 7, pero no necesita conectarse a la base de datos para generar el cliente.
 
-Security policy in CI:
+Política de seguridad en CI:
 
 ```txt
 npm audit --audit-level=high
 ```
 
-This means high and critical vulnerabilities fail CI. Known moderate findings are tracked in `docs/vulnerability-analysis.md` and do not currently block the MVP pipeline because their automatic fixes require breaking downgrades.
+Esto significa que vulnerabilidades high y critical fallan CI. Los hallazgos moderate conocidos se registran en `docs/vulnerability-analysis.md` y actualmente no bloquean el pipeline MVP porque sus correcciones automáticas requieren downgrades incompatibles.
 
-## Future Automation
+## Automatización Futura
 
-Recommended next DevOps improvements:
+Mejoras DevOps recomendadas:
 
 ```txt
 GitHub Actions
-  -> keep CI as the validation gate
-  -> optionally publish Docker images to a container registry
+  -> mantener CI como gate de validación
+  -> opcionalmente publicar imágenes Docker en un container registry
 
 Prisma deployment
-  -> add prisma:migrate:deploy script
-  -> run prisma migrate deploy in CI/CD or Railway pre-deploy
+  -> agregar script prisma:migrate:deploy
+  -> ejecutar prisma migrate deploy en CI/CD o Railway pre-deploy
 
 Terraform
-  -> Cloudflare R2 bucket is already represented in infra/terraform/cloudflare
-  -> manage Cloudflare Worker resources if practical
-  -> document provider variables and remote state decision
-  -> consider remote state before using Terraform collaboratively
+  -> el bucket Cloudflare R2 ya está representado en infra/terraform/cloudflare
+  -> administrar recursos de Cloudflare Worker si resulta práctico
+  -> documentar variables de provider y decisión de remote state
+  -> considerar remote state antes de usar Terraform colaborativamente
 ```
 
-Prisma migrations should not be managed by Terraform. Terraform manages infrastructure resources; Prisma manages application database schema changes.
+Las migraciones Prisma no deben administrarse con Terraform. Terraform administra recursos de infraestructura; Prisma administra cambios de schema de la base de datos de aplicación.

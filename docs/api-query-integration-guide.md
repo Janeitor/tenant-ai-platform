@@ -1,69 +1,69 @@
-# API Query Integration Guide
+# Guía De Integración Para Consultas API
 
-This guide explains how a customer can integrate Tenant AI document querying into an existing application.
+Esta guía explica cómo un cliente puede integrar la consulta de documentos de Tenant AI dentro de una aplicación existente.
 
-## Goal
+## Objetivo
 
-Tenant AI is API-first. A customer system can query tenant documents by calling the Tenant AI API from a secure backend environment.
+Tenant AI está diseñado como una solución API-first. Un sistema cliente puede consultar documentos de su tenant llamando a la API de Tenant AI desde un entorno backend seguro.
 
-The customer does not need to manage:
+El cliente no necesita administrar:
 
 - embeddings
-- vector search
-- document chunking
-- OpenAI calls
-- tenant filtering
-- usage tracking
+- búsqueda vectorial
+- chunking de documentos
+- llamadas a OpenAI
+- filtrado por tenant
+- tracking de uso
 
-Tenant AI handles those responsibilities.
+Tenant AI se encarga de esas responsabilidades.
 
-## Authentication
+## Autenticación
 
-Each customer tenant receives a tenant-scoped API key:
+Cada tenant cliente recibe una API key acotada a ese tenant:
 
 ```txt
 tai_...
 ```
 
-The API key must be stored in a secure backend environment, similar to how an application would store an OpenAI API key.
+La API key debe almacenarse en un entorno backend seguro, de forma similar a como una aplicación almacenaría una API key de OpenAI.
 
-Do not expose the API key in:
+No exponer la API key en:
 
-- browser JavaScript
-- public HTML
-- frontend environment variables
-- source code repositories
+- JavaScript del navegador
+- HTML público
+- variables de entorno del frontend
+- repositorios de código fuente
 
-Recommended customer environment variables:
+Variables de entorno recomendadas para el cliente:
 
 ```env
 TENANT_AI_API_URL=https://api.example.com/api
 TENANT_AI_API_KEY=tai_your_tenant_api_key
 ```
 
-## Request Flow
+## Flujo De Solicitud
 
 ```txt
-Customer browser
+Navegador del cliente
   |
-Customer frontend
+Frontend del cliente
   |
-Customer backend
+Backend del cliente
   |
 Tenant AI API /api/ask
   |
-Tenant AI resolves tenant from x-api-key
+Tenant AI resuelve el tenant desde x-api-key
   |
-Tenant-scoped retrieval + answer generation
+Retrieval acotado al tenant + generación de respuesta
   |
-Customer backend
+Backend del cliente
   |
-Customer frontend
+Frontend del cliente
 ```
 
-The customer frontend should call its own backend. The customer backend then calls Tenant AI with the tenant API key.
+El frontend del cliente debe llamar a su propio backend. El backend del cliente llama luego a Tenant AI usando la API key del tenant.
 
-## Query Endpoint
+## Endpoint De Consulta
 
 ```http
 POST /api/ask
@@ -71,7 +71,7 @@ Content-Type: application/json
 x-api-key: tai_...
 ```
 
-Request body:
+Body de la solicitud:
 
 ```json
 {
@@ -80,7 +80,7 @@ Request body:
 }
 ```
 
-Response:
+Respuesta:
 
 ```json
 {
@@ -107,7 +107,7 @@ Response:
 }
 ```
 
-## Node.js Example
+## Ejemplo En Node.js
 
 ```ts
 app.post('/internal/ask', async (req, res) => {
@@ -129,11 +129,11 @@ app.post('/internal/ask', async (req, res) => {
 });
 ```
 
-The customer's browser should call `/internal/ask`, not Tenant AI directly.
+El navegador del cliente debe llamar a `/internal/ask`, no directamente a Tenant AI.
 
-## Insufficient Context
+## Contexto Insuficiente
 
-If no relevant tenant document is found, Tenant AI returns a controlled response:
+Si no se encuentra un documento relevante del tenant, Tenant AI devuelve una respuesta controlada:
 
 ```json
 {
@@ -154,96 +154,96 @@ If no relevant tenant document is found, Tenant AI returns a controlled response
 }
 ```
 
-This means the system did not find enough evidence in the tenant documents to answer.
+Esto significa que el sistema no encontró evidencia suficiente en los documentos del tenant para responder.
 
-## Tenant Isolation
+## Aislamiento Por Tenant
 
-The customer does not send `tenantId`.
+El cliente no envía `tenantId`.
 
-Tenant AI resolves tenant identity from:
+Tenant AI resuelve la identidad del tenant desde:
 
 ```txt
 x-api-key
 ```
 
-Every retrieval query filters by the authenticated tenant. A tenant API key can only retrieve documents that belong to that tenant.
+Todas las consultas de retrieval filtran por el tenant autenticado. Una API key de tenant solo puede recuperar documentos que pertenecen a ese tenant.
 
-## Client Demo Application
+## Aplicación Client Demo
 
-This repository includes `apps/client-demo`, a sample customer application that demonstrates the recommended integration pattern. The current UI simulates a notary intranet where an internal user can ask questions over tenant documents without seeing implementation details such as API keys, token usage or retrieval metadata.
+Este repositorio incluye `apps/client-demo`, una aplicación cliente de ejemplo que demuestra el patrón de integración recomendado. La interfaz actual simula una intranet notarial donde un usuario interno puede hacer preguntas sobre los documentos del tenant sin ver detalles de implementación como API keys, uso de tokens o metadata de retrieval.
 
-It behaves like an external customer application:
+Se comporta como una aplicación externa de un cliente:
 
-- it does not import backend code from `apps/api`
-- it does not connect to Prisma
-- it does not know the tenantId
-- it calls Tenant AI through HTTP
-- it keeps the tenant API key server-side
+- no importa código backend desde `apps/api`
+- no se conecta a Prisma
+- no conoce el `tenantId`
+- llama a Tenant AI a través de HTTP
+- mantiene la API key del tenant en el servidor
 
-The demo uses a Next.js server route as the customer's backend integration layer.
-
-```txt
-Browser
-  |
-apps/client-demo page
-  |
-apps/client-demo /api/ask server route
-  |
-Tenant AI API /api/ask with x-api-key
-```
-
-The public cloud demo is deployed as a Cloudflare Worker through OpenNext. This keeps the same security model as the local Next.js version:
+El demo usa una ruta server-side de Next.js como capa de integración backend del cliente.
 
 ```txt
-Browser
+Navegador
   |
-Cloudflare Worker frontend
+Página apps/client-demo
   |
-Cloudflare Worker /api/ask server route
+Ruta server apps/client-demo /api/ask
   |
-Tenant AI Railway API with x-api-key
+Tenant AI API /api/ask con x-api-key
 ```
 
-Runtime configuration:
+El demo público en cloud está desplegado como Cloudflare Worker usando OpenNext. Esto mantiene el mismo modelo de seguridad que la versión local de Next.js:
+
+```txt
+Navegador
+  |
+Frontend en Cloudflare Worker
+  |
+Ruta server /api/ask del Cloudflare Worker
+  |
+Tenant AI Railway API con x-api-key
+```
+
+Configuración de runtime:
 
 ```env
 TENANT_AI_API_URL=https://<railway-domain>/api
 TENANT_AI_API_KEY=tai_your_tenant_api_key
 ```
 
-`TENANT_AI_API_KEY` must be stored as a Cloudflare secret. It must not be exposed as client-side JavaScript or committed to the repository.
+`TENANT_AI_API_KEY` debe almacenarse como secret de Cloudflare. No debe exponerse como JavaScript del lado cliente ni committearse al repositorio.
 
-## Running The Client Demo Locally
+## Ejecutar El Client Demo Localmente
 
-Create:
+Crear:
 
 ```txt
 apps/client-demo/.env.local
 ```
 
-Example:
+Ejemplo:
 
 ```env
 TENANT_AI_API_URL=http://localhost:3000/api
 TENANT_AI_API_KEY=tai_your_tenant_api_key
 ```
 
-Start the Tenant AI API:
+Iniciar la API Tenant AI:
 
 ```bash
 npm run start:dev --workspace @tenant-ai/api
 ```
 
-Start the client demo:
+Iniciar el client demo:
 
 ```bash
 npm run dev --workspace @tenant-ai/client-demo
 ```
 
-Open:
+Abrir:
 
 ```txt
 http://localhost:3001
 ```
 
-Ask a question about the tenant documents. The client demo will call its own server route, which forwards the request to Tenant AI using the tenant API key.
+Haz una pregunta sobre los documentos del tenant. El client demo llamará a su propia ruta server-side, que reenviará la solicitud a Tenant AI usando la API key del tenant.

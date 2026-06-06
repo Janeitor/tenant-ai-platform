@@ -1,58 +1,58 @@
 # AGENTS.md
 
-## Project context
+## Contexto Del Proyecto
 
-This project is a multi-tenant enterprise AI platform that exposes a RAG API for companies to query their internal documents without managing AI infrastructure.
+Este proyecto es una plataforma de IA empresarial multi-tenant que expone una API RAG para que las empresas puedan consultar sus documentos internos sin administrar infraestructura de IA.
 
-The product must prioritize:
-- API-first design
-- multi-tenant isolation
-- clean architecture
-- secure document processing
-- retrieval with tenant filtering
-- responses with sources
-- token usage visibility
-- testable and maintainable code
+El producto debe priorizar:
+- diseño API-first
+- aislamiento multi-tenant
+- arquitectura limpia
+- procesamiento seguro de documentos
+- retrieval con filtrado por tenant
+- respuestas con fuentes
+- visibilidad del uso de tokens
+- código testeable y mantenible
 
-The initial deliverable is not a throwaway prototype. All implemented features should follow the same architecture, security and maintainability standards expected from the final product.
-
----
-
-## Collaboration and learning mode
-
-The developer is learning the stack while building the project.
-
-Before implementing a new feature or module:
-- Explain the mental model and request flow first.
-- Describe which files will be created or modified and why.
-- Implement the change step by step.
-- After implementation, provide a short recap explaining how the new pieces interact.
-- Encourage questions before moving to the next feature.
-
-Avoid unexplained "vibecoding". The project should progress in a way that leaves the developer able to understand, maintain and explain the code.
+El entregable inicial no es un prototipo desechable. Todas las funcionalidades implementadas deben seguir los mismos estándares de arquitectura, seguridad y mantenibilidad esperados para el producto final.
 
 ---
 
-## Tech stack
+## Modo De Colaboración Y Aprendizaje
+
+El desarrollador está aprendiendo el stack mientras construye el proyecto.
+
+Antes de implementar una nueva funcionalidad o módulo:
+- Explicar primero el modelo mental y el flujo de la solicitud.
+- Describir qué archivos se crearán o modificarán y por qué.
+- Implementar el cambio paso a paso.
+- Después de la implementación, entregar una breve recapitulación explicando cómo interactúan las nuevas piezas.
+- Incentivar preguntas antes de pasar a la siguiente funcionalidad.
+
+Evitar el "vibecoding" sin explicación. El proyecto debe avanzar de una forma que permita al desarrollador entender, mantener y explicar el código.
+
+---
+
+## Tech Stack
 
 - Backend: NestJS + TypeScript
-- Database: PostgreSQL + pgvector
+- Base de datos: PostgreSQL + pgvector
 - ORM: Prisma
-- AI providers: OpenAI SDK and/or Gemini SDK
+- Proveedores de IA: OpenAI SDK y/o Gemini SDK
 - Queue: BullMQ + Redis
-- Storage: S3-compatible storage
+- Storage: almacenamiento compatible con S3
 - Frontend: Next.js
 - Tests: Jest + Supertest
-- Docker: Docker Compose for local development
+- Docker: Docker Compose para desarrollo local
 - CI/CD: GitHub Actions
 
 ---
 
-## Architecture rules
+## Reglas De Arquitectura
 
-Use modular architecture in NestJS.
+Usar arquitectura modular en NestJS.
 
-Preferred modules:
+Módulos preferidos:
 - auth
 - tenants
 - api-keys
@@ -64,69 +64,69 @@ Preferred modules:
 - usage
 - health
 
-The usage module must track and expose token consumption for product visibility.
+El módulo `usage` debe registrar y exponer el consumo de tokens para visibilidad del producto.
 
-Do not mix business logic inside controllers.
+No mezclar lógica de negocio dentro de controllers.
 
-Controllers should only:
-- validate request
-- call application services
-- return DTOs
+Los controllers solo deben:
+- validar la solicitud
+- llamar a servicios de aplicación
+- devolver DTOs
 
-Business logic must live in services/use cases.
+La lógica de negocio debe vivir en services o use cases.
 
-Infrastructure-specific logic must be isolated in providers/adapters.
-
----
-
-## Multi-tenancy rules
-
-Tenant isolation is mandatory.
-
-Every document, chunk, conversation, API key and usage record must include tenantId.
-
-Every database query involving business data must filter by tenantId.
-
-Never allow cross-tenant access.
-
-Never trust tenantId from the request body if an API key or JWT already resolves the tenant.
+La lógica específica de infraestructura debe aislarse en providers o adapters.
 
 ---
 
-## RAG rules
+## Reglas Multi-Tenant
 
-The `/ask` flow should be:
+El aislamiento por tenant es obligatorio.
 
-1. Resolve tenant from API key.
-2. Create embedding for the user question.
-3. Search relevant chunks filtered by tenantId.
-4. Build a prompt using only retrieved context.
-5. Call the LLM.
-6. Return answer, sources and usage metadata.
+Cada documento, chunk, conversación, API key y registro de uso debe incluir `tenantId`.
 
-Responses must include sources when available.
+Toda consulta de base de datos que involucre datos de negocio debe filtrar por `tenantId`.
 
-If no relevant context is found, the assistant must say that the available documents do not contain enough information.
+Nunca permitir acceso cross-tenant.
+
+Nunca confiar en `tenantId` recibido desde el body si una API key o JWT ya resolvió el tenant.
 
 ---
 
-## Usage and token tracking rules
+## Reglas RAG
 
-The product must include basic token usage visibility from the initial deliverable.
+El flujo de `/ask` debe ser:
 
-For each `/ask` request, store and return usage metadata when available:
+1. Resolver el tenant desde la API key.
+2. Crear el embedding de la pregunta del usuario.
+3. Buscar chunks relevantes filtrados por `tenantId`.
+4. Construir un prompt usando solo el contexto recuperado.
+5. Llamar al LLM.
+6. Devolver respuesta, fuentes y metadata de uso.
+
+Las respuestas deben incluir fuentes cuando estén disponibles.
+
+Si no se encuentra contexto relevante, el asistente debe indicar que los documentos disponibles no contienen información suficiente.
+
+---
+
+## Reglas De Uso Y Tracking De Tokens
+
+El producto debe incluir visibilidad básica del uso de tokens desde el entregable inicial.
+
+Para cada solicitud a `/ask`, almacenar y devolver metadata de uso cuando esté disponible:
 - input tokens
 - output tokens
 - total tokens
-- model used
-- provider used
-- estimated cost when pricing configuration is available
+- modelo utilizado
+- provider utilizado
+- costo estimado cuando exista configuración de precios
 - tenantId
-- request timestamp
+- timestamp de la solicitud
 
-The `/ask` response should include a `usage` object.
+La respuesta de `/ask` debe incluir un objeto `usage`.
 
-Example response shape:
+Ejemplo de shape de respuesta:
 
 ```json
 {
@@ -149,121 +149,122 @@ Example response shape:
 }
 ```
 
-Token usage must be persisted in `usage_logs`.
+El uso de tokens debe persistirse en `usage_logs`.
 
-Usage visibility should support:
-- per request usage
-- per tenant usage
-- future monthly limits
+La visibilidad de uso debe soportar:
+- uso por request
+- uso por tenant
+- futuros límites mensuales
 
-Do not block the initial deliverable if a provider does not return exact usage data. In that case, store `null` for unavailable values and keep the response shape consistent.
-
-
-## Testing rules
-
-Add or update tests for every relevant change.
-
-Use:
-- unit tests for services
-- integration tests for API endpoints
-- mocked LLM providers in tests
-- mocked embedding providers where appropriate
-
-Important tests:
-- tenant isolation
-- API key authentication
-- document upload
-- chunk creation
-- vector search filtered by tenant
-- `/ask` response shape
-- usage logging
-- token usage returned by `/ask`
-
-Do not call real OpenAI/Gemini APIs in automated tests.
+No bloquear el entregable inicial si un provider no devuelve datos exactos de uso. En ese caso, almacenar `null` para los valores no disponibles y mantener consistente el shape de respuesta.
 
 ---
 
-## Code style
+## Reglas De Testing
 
-Use TypeScript strict mode.
+Agregar o actualizar tests para cada cambio relevante.
 
-Prefer:
-- explicit DTOs
+Usar:
+- unit tests para services
+- integration tests para endpoints de API
+- providers LLM mockeados en tests
+- providers de embeddings mockeados cuando corresponda
+
+Tests importantes:
+- aislamiento por tenant
+- autenticación con API key
+- carga de documentos
+- creación de chunks
+- búsqueda vectorial filtrada por tenant
+- shape de respuesta de `/ask`
+- logging de uso
+- uso de tokens devuelto por `/ask`
+
+No llamar APIs reales de OpenAI/Gemini en tests automatizados.
+
+---
+
+## Estilo De Código
+
+Usar TypeScript strict mode.
+
+Preferir:
+- DTOs explícitos
 - dependency injection
-- small services
-- clear module boundaries
-- descriptive names
+- services pequeños
+- límites claros entre módulos
+- nombres descriptivos
 - async/await
-- environment variables via config service
+- variables de entorno vía config service
 
-Avoid:
-- hardcoded secrets
-- business logic in controllers
-- direct provider SDK calls outside infrastructure adapters
-- untyped `any`
-- global mutable state
-
----
-
-## Security rules
-
-Never commit secrets.
-
-Use `.env.example` for required environment variables.
-
-Validate uploaded files:
-- allowed MIME types
-- max file size
-- tenant ownership
-
-Do not log API keys, prompts with sensitive data, or full document contents.
+Evitar:
+- secretos hardcodeados
+- lógica de negocio en controllers
+- llamadas directas a SDKs de providers fuera de adapters de infraestructura
+- `any` sin tipar
+- estado mutable global
 
 ---
 
-## Vulnerability analysis
+## Reglas De Seguridad
 
-The product should include basic vulnerability analysis as part of development and CI from the initial deliverable.
+Nunca committear secretos.
 
-Use automated checks for:
-- dependency vulnerabilities with `npm audit` or an equivalent tool
-- secret detection before commits and in CI
-- static analysis and security-focused lint rules where practical
-- Docker image vulnerability scanning when container images are introduced
-- API security review based on OWASP API Security Top 10
+Usar `.env.example` para variables de entorno requeridas.
 
-Security-sensitive flows must include tests for:
-- tenant isolation
-- API key authentication and authorization failures
-- unauthorized cross-tenant access attempts
-- file upload validation
-- prompt, source and document data leakage prevention
+Validar archivos subidos:
+- MIME types permitidos
+- tamaño máximo de archivo
+- propiedad del tenant
 
-Vulnerability findings should be documented with:
-- severity
-- affected component
-- reproduction or evidence
-- recommended fix
-- status
-
-Do not block the initial deliverable on advanced enterprise security tooling, but keep the project ready to add stronger checks in CI/CD.
+No registrar en logs API keys, prompts con datos sensibles ni contenido completo de documentos.
 
 ---
 
-## Database rules
+## Análisis De Vulnerabilidades
 
-Use Prisma migrations.
+El producto debe incluir análisis básico de vulnerabilidades como parte del desarrollo y CI desde el entregable inicial.
 
-Use PostgreSQL with pgvector for embeddings.
+Usar checks automatizados para:
+- vulnerabilidades de dependencias con `npm audit` o herramienta equivalente
+- detección de secretos antes de commits y en CI
+- análisis estático y reglas de lint enfocadas en seguridad cuando sea práctico
+- escaneo de vulnerabilidades de imagen Docker cuando se introduzcan imágenes de contenedor
+- revisión de seguridad de API basada en OWASP API Security Top 10
 
-Prefer schema designs that enforce tenant ownership.
+Los flujos sensibles de seguridad deben incluir tests para:
+- aislamiento por tenant
+- fallos de autenticación y autorización con API key
+- intentos no autorizados de acceso cross-tenant
+- validación de carga de archivos
+- prevención de filtración de prompts, fuentes y datos de documentos
 
-Vector search queries must include tenant filtering.
+Los hallazgos de vulnerabilidades deben documentarse con:
+- severidad
+- componente afectado
+- reproducción o evidencia
+- corrección recomendada
+- estado
+
+No bloquear el entregable inicial por tooling avanzado de seguridad empresarial, pero mantener el proyecto preparado para agregar checks más fuertes en CI/CD.
 
 ---
 
-## Git rules
+## Reglas De Base De Datos
 
-Before finishing a task, run:
+Usar migraciones de Prisma.
+
+Usar PostgreSQL con pgvector para embeddings.
+
+Preferir diseños de schema que refuercen propiedad por tenant.
+
+Las consultas de búsqueda vectorial deben incluir filtrado por tenant.
+
+---
+
+## Reglas De Git
+
+Antes de finalizar una tarea, ejecutar:
 
 ```bash
 npm run lint
@@ -271,43 +272,43 @@ npm run test
 npm run build
 ```
 
-If a command fails, explain the failure and propose the smallest fix.
+Si un comando falla, explicar la falla y proponer la corrección más pequeña.
 
 ---
 
-## Documentation rules
+## Reglas De Documentación
 
-Update README.md when:
-- setup changes
-- environment variables change
-- API endpoints change
-- deployment instructions change
+Actualizar `README.md` cuando:
+- cambie el setup
+- cambien variables de entorno
+- cambien endpoints de API
+- cambien instrucciones de despliegue
 
-Keep documentation useful for the TFM evaluator.
+Mantener la documentación útil para el evaluador del TFM.
 
 ---
 
-## Initial deliverable scope
+## Alcance Del Entregable Inicial
 
-Do implement:
-- tenant creation
-- API key auth
-- document upload
+Implementar:
+- creación de tenants
+- autenticación con API key
+- carga de documentos
 - ingestion
 - embeddings
-- vector retrieval
-- ask endpoint
-- sources
+- retrieval vectorial
+- endpoint ask
+- fuentes
 - usage logs
-- token usage visibility
+- visibilidad de uso de tokens
 - tests
 - Docker Compose
 
-Do not implement yet:
+No implementar todavía:
 - agents
 - fine-tuning
-- complex workflows
-- ERP connectors
-- advanced RBAC
-- billing integration
-- Terraform production automation
+- workflows complejos
+- conectores ERP
+- RBAC avanzado
+- integración de billing
+- automatización Terraform de producción
