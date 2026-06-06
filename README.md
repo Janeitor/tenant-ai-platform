@@ -147,6 +147,30 @@ For the validated MVP cloud deployment, see:
 docs/cloud-deployment.md
 ```
 
+## Continuous Integration
+
+The repository includes a GitHub Actions workflow:
+
+```txt
+.github/workflows/ci.yml
+```
+
+It runs on pushes and pull requests targeting `main`.
+
+Current checks:
+
+```txt
+npm ci
+Prisma client generation
+npm run lint
+npm run test
+npm run build
+Docker image build
+npm audit --audit-level=high
+```
+
+The Prisma client is generated inside CI because generated Prisma output is intentionally not committed to Git. Vulnerabilities with `high` or `critical` severity fail CI. Known moderate findings are documented in `docs/vulnerability-analysis.md`.
+
 ## Demo Flow
 
 This flow demonstrates the current end-to-end product locally.

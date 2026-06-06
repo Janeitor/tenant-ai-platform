@@ -26,8 +26,11 @@ Planned DevOps additions:
 
 ```txt
 GitHub Actions
+  -> npm ci
+  -> Prisma client generation
   -> lint/test/build
   -> Docker image validation
+  -> npm audit --audit-level=high
   -> future Prisma migrate deploy
 
 Terraform
@@ -373,18 +376,65 @@ Prisma migrations from local terminal using DATABASE_PUBLIC_URL
 
 These are acceptable for the first cloud validation, but should be automated or documented as controlled release steps before final delivery.
 
+## GitHub Actions CI
+
+The project includes a CI workflow:
+
+```txt
+.github/workflows/ci.yml
+```
+
+It runs on:
+
+```txt
+push to main
+pull_request to main
+```
+
+Current validation steps:
+
+```txt
+Checkout repository
+Setup Node.js 22
+npm ci
+Generate Prisma client
+npm run lint
+npm run test
+npm run build
+docker build -t tenant-ai-api:ci .
+npm audit --audit-level=high
+```
+
+The Prisma client generation step is required because:
+
+```txt
+apps/api/generated/prisma
+```
+
+is intentionally ignored by Git. CI runs on a clean machine, so the generated client must be recreated before tests and builds can import:
+
+```txt
+#prisma-client
+```
+
+The workflow uses a dummy `DATABASE_URL` for Prisma generation. `prisma generate` needs a valid database URL format through Prisma 7 configuration, but it does not need to connect to the database for client generation.
+
+Security policy in CI:
+
+```txt
+npm audit --audit-level=high
+```
+
+This means high and critical vulnerabilities fail CI. Known moderate findings are tracked in `docs/vulnerability-analysis.md` and do not currently block the MVP pipeline because their automatic fixes require breaking downgrades.
+
 ## Future Automation
 
 Recommended next DevOps improvements:
 
 ```txt
 GitHub Actions
-  -> npm ci
-  -> npm run lint
-  -> npm run test
-  -> npm run build
-  -> docker build
-  -> npm audit
+  -> keep CI as the validation gate
+  -> optionally publish Docker images to a container registry
 
 Prisma deployment
   -> add prisma:migrate:deploy script
