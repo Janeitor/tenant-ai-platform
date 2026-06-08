@@ -108,6 +108,22 @@ Las respuestas deben incluir fuentes cuando estén disponibles.
 
 Si no se encuentra contexto relevante, el asistente debe indicar que los documentos disponibles no contienen información suficiente.
 
+El flujo existente de consulta directa con `x-api-key` es parte del contrato público del producto y no debe romperse.
+
+La incorporación de paneles administrativos con JWT debe ser una capa adicional, no un reemplazo del flujo actual:
+
+```txt
+x-api-key
+  -> consumo externo de la API RAG
+  -> usado por clientes, sistemas e integraciones
+
+JWT
+  -> uso humano en paneles web administrativos
+  -> usado por tenant_admin y system_admin
+```
+
+No cambiar `ApiKeyAuthGuard`, no eliminar endpoints actuales y no hacer que `/api/ask` dependa exclusivamente de JWT.
+
 ---
 
 ## Reglas De Uso Y Tracking De Tokens
@@ -218,6 +234,10 @@ Validar archivos subidos:
 - propiedad del tenant
 
 No registrar en logs API keys, prompts con datos sensibles ni contenido completo de documentos.
+
+La seguridad real debe aplicarse en backend. El frontend puede ocultar rutas por UX, pero no debe ser la frontera de seguridad.
+
+Los futuros paneles administrativos deben usar JWT y guards de roles, mientras que las integraciones externas deben seguir usando `x-api-key`.
 
 ---
 

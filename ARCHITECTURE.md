@@ -82,6 +82,33 @@ Esto refleja cómo un backend real de cliente puede consumir Tenant AI mantenien
 
 ---
 
+## Contratos De Autenticación
+
+La plataforma mantiene dos mecanismos de autenticación con propósitos distintos:
+
+```txt
+x-api-key
+  -> consumo externo de la API RAG
+  -> usado por clientes, sistemas e integraciones
+  -> resuelve tenantId desde ApiKeyAuthGuard
+
+JWT
+  -> uso humano en paneles web administrativos
+  -> usado por tenant_admin y system_admin
+  -> resuelve usuario, rol y tenantId desde sesión autenticada
+```
+
+El flujo `x-api-key` existente es parte del contrato público del producto y debe mantenerse estable. Los paneles administrativos con JWT se agregan como una capa adicional para administración web, no como reemplazo del consumo externo de la API.
+
+Reglas:
+- no cambiar el contrato actual de `/api/ask` con `x-api-key`
+- no hacer que `/api/ask` dependa exclusivamente de JWT
+- no eliminar endpoints existentes usados por integraciones externas
+- mantener `ApiKeyAuthGuard` para consumo API-first
+- aplicar guards JWT/roles solo para paneles administrativos y rutas de administración
+
+---
+
 ## Estrategia Multi-Tenant
 
 El aislamiento por tenant se refuerza a nivel de aplicación y base de datos.
@@ -412,6 +439,7 @@ La capa de providers debe mantenerse abstraída. Los tests automatizados mockean
 ## Seguridad
 
 - autenticación con API key
+- autenticación JWT para futuros paneles administrativos
 - aislamiento por tenant
 - validación global de DTOs con NestJS ValidationPipe
 - validación de archivos
@@ -424,6 +452,8 @@ Reglas de validación:
 - propiedades desconocidas del body son rechazadas
 - los endpoints de negocio no deben confiar en `tenantId` desde request bodies
 - la identidad del tenant se resuelve desde API keys
+- los paneles administrativos deben resolver usuario, rol y tenant desde JWT
+- la seguridad debe aplicarse en backend; ocultar rutas en frontend solo mejora la UX, no reemplaza autorización
 
 ---
 
