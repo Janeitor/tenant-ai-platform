@@ -1,5 +1,11 @@
 # TFM Multitenant RAG
 
+![Node.js](https://img.shields.io/badge/Node.js-22_LTS-339933?logo=node.js&logoColor=white)
+![NestJS](https://img.shields.io/badge/NestJS-API-E0234E?logo=nestjs&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL%20%2B%20pgvector-Database-4169E1?logo=postgresql&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Local%20Infra-2496ED?logo=docker&logoColor=white)
+![CI](https://img.shields.io/badge/GitHub_Actions-CI-2088FF?logo=githubactions&logoColor=white)
+
 Plataforma de IA empresarial multi-tenant que expone una API RAG para que las empresas puedan consultar documentos internos sin administrar infraestructura de IA.
 
 ## Objetivo Del Producto
@@ -13,16 +19,42 @@ Construir una plataforma orientada a producción con:
 - visibilidad del uso de tokens
 - arquitectura mantenible y tests automatizados
 
-El entregable inicial no es un prototipo desechable. Las funcionalidades implementadas deben seguir estándares de arquitectura, seguridad y mantenibilidad esperados para el producto final.
+El entregable inicial no es un prototipo desechable, pero tampoco representa el producto final completo. Es un MVP funcional construido con una base técnica pensada para evolucionar. Las funcionalidades implementadas deben seguir estándares de arquitectura, seguridad y mantenibilidad esperados para una versión productiva, dejando espacio para futuras mejoras como paneles de administración, automatización de despliegues, observabilidad avanzada, billing, RBAC y nuevas integraciones.
 
-## Herramientas Requeridas
+## Vista General De Arquitectura
 
-- Node.js 22 LTS
-- npm
-- Git
-- Docker Desktop con Docker Compose
+```mermaid
+flowchart TD
+  Customer["Aplicacion cliente"] -->|HTTP + x-api-key| Api["Tenant AI API"]
+  Api --> Auth["ApiKeyAuthGuard"]
+  Auth --> Tenant["Tenant resuelto desde API key"]
+  Tenant --> Retrieval["Retrieval tenant-scoped"]
+  Retrieval --> Pg[("PostgreSQL + pgvector")]
+  Retrieval --> Context["Seleccion de contexto"]
+  Context --> Llm["LLM Provider"]
+  Llm --> Usage["Usage logs"]
+  Llm --> Response["Respuesta con fuentes"]
+  Api --> Storage["S3-compatible storage"]
+```
 
-Alineación local recomendada:
+> [!NOTE]
+> El cliente no envía `tenantId`. La API resuelve el tenant desde `x-api-key` y todas las consultas de negocio deben filtrar por ese tenant.
+
+## Herramientas Previas Requeridas
+
+Antes de ejecutar comandos del proyecto, el equipo debe tener instaladas estas herramientas base. Estas herramientas no se instalan con `npm install`; son prerequisitos del sistema operativo o del entorno de desarrollo.
+
+| Herramienta | Versión recomendada | Uso en el proyecto |
+| --- | --- | --- |
+| Node.js | 22 LTS | Ejecutar los workspaces `api`, `client-demo`, scripts de build y tests |
+| npm | 10.x o superior | Instalar dependencias y ejecutar scripts del monorepo |
+| Git | versión estable reciente | Clonar el repositorio y revisar cambios |
+| Docker Desktop | versión estable reciente | Levantar PostgreSQL, Redis y MinIO con Docker Compose |
+| Docker Compose | incluido en Docker Desktop | Ejecutar `docker compose up -d` |
+
+Después de tener estas herramientas instaladas, `npm install` se usará más adelante para instalar las librerías propias del proyecto, como NestJS, Prisma, Next.js, OpenAI SDK, Jest, ESLint y otros paquetes declarados en los `package.json`.
+
+Validar instalación local:
 
 ```bash
 node -v
@@ -31,14 +63,36 @@ git --version
 docker compose version
 ```
 
-El proyecto debe usar la misma versión mayor de Node.js localmente, en Docker y en GitHub Actions.
-
-Actualmente probado con:
+Versiones usadas durante el desarrollo y pruebas del MVP:
 
 ```txt
 Node.js v22.22.3
 npm 10.9.8
 ```
+
+Requisito importante:
+
+```txt
+La versión principal de Node.js debe ser 22.x tanto localmente como en Docker y GitHub Actions.
+```
+
+Esto evita diferencias entre:
+
+```txt
+desarrollo local
+contenedor Docker de la API
+pipeline de CI en GitHub Actions
+```
+
+Si `node -v` muestra una versión principal distinta, por ejemplo `v20.x` o `v24.x`, se recomienda instalar Node.js 22 LTS antes de continuar. Una forma simple de hacerlo en Windows es descargar el instalador LTS desde el sitio oficial de Node.js.
+
+Docker Desktop debe estar iniciado antes de ejecutar:
+
+```bash
+docker compose up -d
+```
+
+Si Docker no está iniciado, los servicios locales de PostgreSQL, Redis y MinIO no podrán levantarse.
 
 ## Tech Stack Planificado
 
@@ -103,15 +157,61 @@ npm 10.9.8
 
 `apps/client-demo` es una aplicación cliente de ejemplo. Está incluida en el monorepo con fines demostrativos, pero se comporta como un sistema externo de un cliente: llama a la API de Tenant AI mediante HTTP y mantiene la API key del tenant en una variable de entorno server-side.
 
-## Setup Local
+## Guía De Instalación Y Prueba Local
 
-Instalar dependencias:
+Esta guía está pensada para que el profesor o evaluador pueda levantar el MVP localmente y probar el flujo completo sin tener que deducir pasos intermedios.
+
+La guía sigue una única secuencia:
+
+```txt
+1. Preparar el entorno
+2. Levantar servicios locales
+3. Preparar la base de datos
+4. Iniciar la API
+5. Crear tenant y API key
+6. Subir e ingestar documentos
+7. Consultar la API
+8. Ejecutar el client demo
+```
+
+> [!IMPORTANT]
+> Antes de iniciar, confirmar que Docker Desktop esté abierto y que Node.js sea versión 22.x.
+
+### 1. Clonar El Repositorio
+
+Desde una terminal:
+
+```bash
+git clone https://github.com/Janeitor/tenant-ai-platform.git
+cd tenant-ai-platform
+```
+
+Si el proyecto ya está descargado, solo entrar a la carpeta raíz del repositorio antes de ejecutar los siguientes comandos.
+
+### 2. Instalar Dependencias Del Proyecto
+
+Ejecutar desde la raíz del repositorio:
 
 ```bash
 npm install
 ```
 
-Crear un archivo de entorno local desde el ejemplo:
+Este comando instala las dependencias declaradas en el `package.json` principal y en los workspaces:
+
+```txt
+apps/api
+apps/client-demo
+apps/web
+packages/shared
+```
+
+`npm install` instala librerías del proyecto como NestJS, Prisma, Next.js, OpenAI SDK, Jest, ESLint y tooling de Cloudflare/OpenNext. No instala Docker, PostgreSQL, Redis, MinIO ni configura variables de entorno.
+
+### 3. Crear Archivo `.env`
+
+El proyecto no committea secretos ni configuración local real. Por eso se debe crear un archivo `.env` desde `.env.example`.
+
+En Linux, macOS o Git Bash:
 
 ```bash
 cp .env.example .env
@@ -123,13 +223,331 @@ En Windows PowerShell:
 Copy-Item .env.example .env
 ```
 
-Ejecutar validaciones del proyecto:
+Para una prueba local sin llamadas reales a OpenAI, usar:
+
+```env
+EMBEDDING_PROVIDER=local
+LLM_PROVIDER_NAME=local
+```
+
+Para probar el flujo RAG con OpenAI, configurar además:
+
+```env
+EMBEDDING_PROVIDER=openai
+LLM_PROVIDER_NAME=openai
+OPENAI_API_KEY=your-api-key
+OPENAI_EMBEDDING_MODEL=text-embedding-3-small
+OPENAI_MODEL=gpt-5-mini
+EMBEDDING_DIMENSIONS=1536
+```
+
+No subir `.env` a Git.
+
+### 4. Levantar Infraestructura Local
+
+La API necesita servicios externos para funcionar localmente:
+
+```txt
+PostgreSQL + pgvector
+Redis
+MinIO
+```
+
+Estos servicios se levantan al mismo tiempo con Docker Compose:
+
+```bash
+docker compose up -d
+```
+
+Verificar que estén arriba:
+
+```bash
+docker compose ps
+```
+
+Si este comando falla, revisar que Docker Desktop esté abierto e iniciado.
+
+### 5. Preparar Base De Datos Local
+
+Con Docker funcionando y PostgreSQL iniciado, ejecutar:
+
+```bash
+npm run prisma:migrate --workspace @tenant-ai/api
+npm run prisma:generate --workspace @tenant-ai/api
+```
+
+Estos comandos hacen dos cosas:
+
+```txt
+prisma:migrate
+  -> crea o actualiza las tablas de la base de datos local
+
+prisma:generate
+  -> genera el cliente Prisma usado por la API
+```
+
+Después de ejecutar las migraciones, la base de datos debería contener tablas como `tenants`, `api_keys`, `documents`, `document_chunks` y `usage_logs`.
+
+Para ver el detalle del modelo creado y la función de cada tabla, revisar la sección `Base De Datos Y Prisma`.
+
+### 6. Ejecutar Validaciones Del Proyecto
+
+Antes de iniciar la aplicación, se recomienda validar que el código compile y que los tests pasen:
 
 ```bash
 npm run lint
 npm run test
 npm run build
 ```
+
+En este punto, si las dependencias se instalaron correctamente, la base de datos fue preparada y el cliente Prisma fue generado, estos comandos deberían ejecutarse sin errores.
+
+Los tests automatizados no deberían llamar APIs reales de OpenAI. Los providers externos se mockean en tests para que la validación local no dependa de saldo, conexión o credenciales reales de proveedores de IA.
+
+Resultado esperado:
+
+```txt
+lint sin errores
+tests pasando
+build completado
+```
+
+### 7. Iniciar La API
+
+```bash
+npm run start:dev --workspace @tenant-ai/api
+```
+
+Mantener esta terminal abierta. La API debería quedar disponible en:
+
+```txt
+http://localhost:3000/api
+```
+
+En otra terminal, validar el healthcheck:
+
+```powershell
+Invoke-RestMethod http://localhost:3000/api/health
+```
+
+Respuesta esperada:
+
+```txt
+status: ok
+service: tenant-ai-api
+```
+
+### 8. Crear Un Tenant Y Una API Key
+
+En el alcance actual del MVP, la creación de tenants y API keys se realiza manualmente mediante endpoints y comandos. Las vistas administrativas para crear tenants, administrar clientes, generar credenciales o revocar API keys quedan consideradas como mejora futura.
+
+Este paso permite simular la configuración inicial que, en una versión más completa del producto, realizaría un administrador desde una interfaz web.
+
+Las llamadas protegidas usan el header:
+
+```txt
+x-api-key: tai_...
+```
+
+La API key resuelve el tenant. El cliente no debe enviar `tenantId`.
+
+Crear un tenant:
+
+```powershell
+$tenant = Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://localhost:3000/api/tenants" `
+  -ContentType "application/json" `
+  -Body '{"name":"Demo Company","slug":"demo-company"}'
+
+$tenant
+```
+
+Crear una API key para ese tenant:
+
+```powershell
+$apiKeyResponse = Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://localhost:3000/api/tenants/$($tenant.id)/api-keys" `
+  -ContentType "application/json" `
+  -Body '{"name":"Local demo key"}'
+
+$apiKeyResponse
+```
+
+La respuesta incluye la API key en texto plano. Esta API key se muestra solo una vez. Guardarla en una variable para los siguientes pasos:
+
+```powershell
+$apiKey = $apiKeyResponse.key
+```
+
+Si se cerró la terminal o no se copió la API key al crearla, se debe generar una nueva API key para el tenant.
+
+### 9. Subir E Ingestar Un Documento
+
+En el alcance actual del MVP, la carga e ingestion de documentos se realiza manualmente mediante endpoints y comandos. Las vistas administrativas para subir, ingestar, eliminar o administrar documentos quedan consideradas como mejora futura.
+
+Este proceso tiene dos pasos:
+
+```txt
+1. Upload
+   -> guarda el archivo en object storage
+   -> crea el registro del documento en la base de datos
+
+2. Ingestion
+   -> lee el archivo almacenado
+   -> extrae texto
+   -> divide el texto en chunks
+   -> calcula tokenCount
+   -> genera embeddings
+   -> guarda los chunks y vectores en PostgreSQL + pgvector
+```
+
+Primero, subir un documento de texto o PDF:
+
+```powershell
+$document = curl.exe -X POST `
+  http://localhost:3000/api/documents/upload `
+  -H "x-api-key: $apiKey" `
+  -F "file=@demo-files/sample-document.txt"
+
+$documentObject = $document | ConvertFrom-Json
+```
+
+Los archivos PDF son soportados cuando contienen texto seleccionable. PDFs escaneados o basados solo en imágenes requieren OCR y están fuera del alcance actual del MVP.
+
+Luego, usar el `id` devuelto para ingestar el documento:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://localhost:3000/api/documents/$($documentObject.id)/ingest" `
+  -Headers @{"x-api-key"=$apiKey}
+```
+
+La ingestion debe ejecutarse después del upload. Si un documento fue subido pero no ingestado, existe como archivo almacenado, pero todavía no puede ser consultado por `/api/ask` porque no tiene chunks ni embeddings disponibles para retrieval.
+
+```mermaid
+flowchart TD
+  Upload["Upload documento"] --> ObjectStorage["Guardar archivo en object storage"]
+  Upload --> DocumentRow["Crear registro documents"]
+  DocumentRow --> Ingest["POST /api/documents/:id/ingest"]
+  Ingest --> Extract["Extraer texto"]
+  Extract --> Chunk["Crear chunks"]
+  Chunk --> Tokens["Calcular tokenCount"]
+  Tokens --> Embeddings["Generar embeddings"]
+  Embeddings --> Pgvector["Guardar chunks + vectores en PostgreSQL pgvector"]
+  Pgvector --> Ready["Documento status = ready"]
+```
+
+### 10. Consultar La API
+
+Hacer una pregunta:
+
+```powershell
+$response = Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://localhost:3000/api/ask" `
+  -Headers @{"x-api-key"=$apiKey} `
+  -ContentType "application/json" `
+  -Body '{"question":"Que informacion contiene el documento?","limit":5}'
+
+$response | ConvertTo-Json -Depth 5
+```
+
+Comportamiento esperado:
+
+```txt
+respuesta basada en documentos
+fuentes con documentName y chunkId
+usage con provider/model/tokens/context metrics
+```
+
+Flujo interno simplificado de `/api/ask`:
+
+```mermaid
+flowchart TD
+  Ask["POST /api/ask"] --> Auth["Validar x-api-key"]
+  Auth --> Tenant["Resolver tenant"]
+  Tenant --> Embed["Crear embedding de la pregunta"]
+  Embed --> Search["Buscar chunks por tenant en pgvector"]
+  Search --> Threshold["Aplicar MIN_RETRIEVAL_SIMILARITY"]
+  Threshold --> Context["Seleccionar contexto dentro del presupuesto"]
+  Context --> HasContext{"Hay contexto?"}
+  HasContext -->|No| NoContext["Respuesta controlada sin llamar LLM"]
+  HasContext -->|Si| LLM["LLM Provider"]
+  LLM --> Usage["Persistir usage_logs"]
+  Usage --> Answer["Respuesta con answer + sources + usage"]
+```
+
+> [!TIP]
+> `/api/retrieval/search` sirve para inspeccionar qué chunks recupera el sistema y ver sus valores de `similarity`. `/api/ask` es el endpoint final para obtener una respuesta generada.
+
+### 11. Revisar Usage Logs
+
+```powershell
+$usage = Invoke-RestMethod `
+  -Method Get `
+  -Uri "http://localhost:3000/api/usage?page=1&limit=5" `
+  -Headers @{"x-api-key"=$apiKey}
+
+$usage | ConvertTo-Json -Depth 5
+```
+
+Los usage logs están acotados por tenant e incluyen métricas de tokens/contexto cuando están disponibles.
+
+### 12. Ejecutar El Client Demo
+
+En este punto ya existe:
+
+```txt
+tenant creado
+API key guardada en $apiKey
+documento subido
+documento ingestado
+API respondiendo preguntas
+```
+
+Ahora se puede configurar el client demo.
+
+El archivo `apps/client-demo/.env.local` no viene incluido en el repositorio porque contiene configuración local y una API key. Debe crearse manualmente.
+
+Crear:
+
+```txt
+apps/client-demo/.env.local
+```
+
+Contenido del archivo:
+
+```env
+TENANT_AI_API_URL=http://localhost:3000/api
+TENANT_AI_API_KEY=tai_your_tenant_api_key_created_in_step_8
+```
+
+El valor `TENANT_AI_API_KEY` debe reemplazarse por la API key creada en el paso `8. Crear Un Tenant Y Una API Key`.
+
+Si se está siguiendo el flujo en PowerShell y la variable `$apiKey` sigue disponible, se puede ver su valor con:
+
+```powershell
+$apiKey
+```
+
+Copiar ese valor en `TENANT_AI_API_KEY`.
+
+Iniciar el demo app:
+
+```bash
+npm run dev --workspace @tenant-ai/client-demo
+```
+
+Abrir:
+
+```txt
+http://localhost:3001
+```
+
+El demo simula una aplicación cliente para una notaría. Llama a su propia ruta server-side de Next.js, que luego llama a la API de Tenant AI con `x-api-key`. El navegador nunca ve la API key del tenant.
 
 ## Client Demo
 
@@ -231,210 +649,6 @@ infra/terraform/cloudflare/terraform.tfvars
 ```
 
 Los archivos Terraform committeados documentan la infraestructura esperada de Cloudflare R2 sin committear secretos. Las migraciones Prisma siguen siendo administradas por Prisma y pasos de release/CI/CD, no por Terraform.
-
-## Demo Flow
-
-Este flujo demuestra el producto end-to-end actual localmente.
-
-### 1. Iniciar infraestructura local
-
-```bash
-docker compose up -d
-```
-
-Revisar servicios:
-
-```bash
-docker compose ps
-```
-
-Servicios locales esperados:
-
-```txt
-PostgreSQL + pgvector
-Redis
-MinIO
-```
-
-### 2. Configurar entorno
-
-Crear `.env` desde `.env.example` si es necesario:
-
-```bash
-cp .env.example .env
-```
-
-Configuración recomendada para demo:
-
-```env
-EMBEDDING_PROVIDER=openai
-EMBEDDING_DIMENSIONS=1536
-OPENAI_EMBEDDING_MODEL=text-embedding-3-small
-LLM_PROVIDER_NAME=openai
-OPENAI_MODEL=gpt-5-mini
-MIN_RETRIEVAL_SIMILARITY=0.5
-```
-
-`OPENAI_API_KEY` debe estar configurada localmente. No committear secretos.
-
-Para una demo local sin costo externo:
-
-```env
-EMBEDDING_PROVIDER=local
-LLM_PROVIDER_NAME=local
-```
-
-### 3. Ejecutar migraciones de base de datos
-
-```bash
-npm run prisma:migrate --workspace @tenant-ai/api
-npm run prisma:generate --workspace @tenant-ai/api
-```
-
-### 4. Iniciar la API
-
-```bash
-npm run start:dev --workspace @tenant-ai/api
-```
-
-Health check:
-
-```powershell
-Invoke-RestMethod http://localhost:3000/api/health
-```
-
-### 5. Preparar una API key de tenant
-
-Las llamadas de demo a la API usan:
-
-```txt
-x-api-key: tai_...
-```
-
-La API key resuelve el tenant. El cliente no debe enviar `tenantId`.
-
-En PowerShell:
-
-```powershell
-$apiKey = "tai_your_tenant_api_key"
-```
-
-### 6. Subir e ingestar un documento
-
-Subir un documento de texto o PDF:
-
-```powershell
-curl.exe -X POST `
-  http://localhost:3000/api/documents/upload `
-  -H "x-api-key: $apiKey" `
-  -F "file=@sample-document-caperucita.txt"
-```
-
-Los archivos PDF son soportados cuando contienen texto seleccionable. PDFs escaneados o basados solo en imágenes requieren OCR y están fuera del alcance actual del MVP.
-
-Usar el `id` devuelto para ingestar:
-
-```powershell
-Invoke-RestMethod `
-  -Method Post `
-  -Uri http://localhost:3000/api/documents/DOCUMENT_ID/ingest `
-  -Headers @{"x-api-key"=$apiKey}
-```
-
-La ingestion crea chunks, estima conteos de tokens, genera embeddings y almacena vectores en PostgreSQL usando pgvector.
-
-### 7. Consultar la API
-
-Hacer una pregunta:
-
-```powershell
-$response = Invoke-RestMethod `
-  -Method Post `
-  -Uri "http://localhost:3000/api/ask" `
-  -Headers @{"x-api-key"=$apiKey} `
-  -ContentType "application/json" `
-  -Body '{"question":"A quien visita Caperucita Roja?","limit":5}'
-
-$response | ConvertTo-Json -Depth 5
-```
-
-Comportamiento esperado:
-
-```txt
-respuesta basada en documentos
-fuentes con documentName y chunkId
-usage con provider/model/tokens/context metrics
-```
-
-Preguntar algo no relacionado:
-
-```powershell
-$response = Invoke-RestMethod `
-  -Method Post `
-  -Uri "http://localhost:3000/api/ask" `
-  -Headers @{"x-api-key"=$apiKey} `
-  -ContentType "application/json" `
-  -Body '{"question":"Quien es el dueno de SpaceX","limit":5}'
-
-$response | ConvertTo-Json -Depth 5
-```
-
-Con `MIN_RETRIEVAL_SIMILARITY=0.5`, la respuesta esperada tiene:
-
-```txt
-sources: []
-usage.selectedChunks: 0
-```
-
-### 8. Revisar usage logs
-
-```powershell
-$response = Invoke-RestMethod `
-  -Method Get `
-  -Uri "http://localhost:3000/api/usage?page=1&limit=5" `
-  -Headers @{"x-api-key"=$apiKey}
-
-$response | ConvertTo-Json -Depth 5
-```
-
-Los usage logs están acotados por tenant e incluyen métricas de tokens/contexto cuando están disponibles.
-
-### 9. Ejecutar el client demo
-
-Crear:
-
-```txt
-apps/client-demo/.env.local
-```
-
-Ejemplo:
-
-```env
-TENANT_AI_API_URL=http://localhost:3000/api
-TENANT_AI_API_KEY=tai_your_tenant_api_key
-```
-
-Iniciar el demo app:
-
-```bash
-npm run dev --workspace @tenant-ai/client-demo
-```
-
-Abrir:
-
-```txt
-http://localhost:3001
-```
-
-El demo simula una aplicación cliente para una notaría. Llama a su propia ruta server-side de Next.js, que luego llama a la API de Tenant AI con `x-api-key`. El navegador nunca ve la API key del tenant.
-
-### 10. Validar el proyecto
-
-```bash
-npm run lint
-npm run test
-npm run build
-```
 
 ## Validación De API
 
@@ -963,6 +1177,36 @@ UsageLog
 ```
 
 La tabla `tenants` es la entidad base para el aislamiento multi-tenant. Futuras entidades de negocio como API keys, documentos, chunks, conversaciones y usage logs deben incluir `tenantId`.
+
+Después de ejecutar:
+
+```bash
+npm run prisma:migrate --workspace @tenant-ai/api
+```
+
+la base de datos local debe contener, como mínimo, estas tablas:
+
+| Tabla | Propósito |
+| --- | --- |
+| `_prisma_migrations` | Registro interno de Prisma para saber qué migraciones ya fueron aplicadas |
+| `tenants` | Empresas o clientes que usan la plataforma |
+| `api_keys` | API keys asociadas a tenants para autenticar llamadas protegidas |
+| `documents` | Metadata de documentos subidos por cada tenant |
+| `document_chunks` | Fragmentos de texto extraídos de documentos, junto con `tokenCount` y embeddings |
+| `usage_logs` | Registro de uso de `/api/ask`, tokens, provider, modelo y métricas de contexto |
+
+Relación conceptual principal:
+
+```mermaid
+erDiagram
+  tenants ||--o{ api_keys : owns
+  tenants ||--o{ documents : owns
+  tenants ||--o{ document_chunks : owns
+  tenants ||--o{ usage_logs : owns
+  documents ||--o{ document_chunks : contains
+```
+
+Esto permite validar visualmente que la migración fue aplicada correctamente. Por ejemplo, al abrir Prisma Studio o un cliente PostgreSQL, deberían verse esas tablas antes de comenzar a probar uploads, ingestion o consultas RAG.
 
 ## Autenticación Con API Key
 
