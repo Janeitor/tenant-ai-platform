@@ -16,11 +16,33 @@ model Tenant {
 
   apiKeys ApiKey[]
   documents Document[]
+  users User[]
 
   documentChunks DocumentChunk[]
   usageLogs UsageLog[]
 
   @@map("tenants")
+}
+
+enum UserRole {
+  system_admin
+  tenant_admin
+}
+
+model User {
+  id           String   @id @default(cuid())
+  tenantId     String?
+  email        String   @unique
+  name         String?
+  passwordHash String
+  role         UserRole
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("users")
 }
 
 model ApiKey {

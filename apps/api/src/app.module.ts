@@ -15,6 +15,7 @@ import { RetrievalModule } from './retrieval/retrieval.module';
 import { ChatModule } from './chat/chat.module';
 import { UsageModule } from './usage/usage.module';
 import { LlmModule } from './llm/llm.module';
+import { TenantAdminModule } from './admin/tenant-admin.module';
 
 const rootEnvPath = path.resolve(process.cwd(), '../../.env');
 const rootLocalEnvPath = path.resolve(process.cwd(), '../../.env.local');
@@ -38,6 +39,7 @@ const rootLocalEnvPath = path.resolve(process.cwd(), '../../.env.local');
     LlmModule,
     ChatModule,
     UsageModule,
+    TenantAdminModule,
   ],
 })
 export class AppModule {}

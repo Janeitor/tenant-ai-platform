@@ -82,6 +82,35 @@ Esto refleja cómo un backend real de cliente puede consumir Tenant AI mantenien
 
 ---
 
+## Panel Administrativo Web
+
+`apps/web` implementa el panel administrativo del tenant para el MVP.
+
+Arquitectónicamente usa JWT, no `x-api-key`:
+
+```txt
+Navegador admin
+  |
+apps/web login/register
+  |
+Rutas server-side de Next.js
+  |
+Tenant AI API /api/auth/*
+  |
+JWT para sesión admin
+  |
+Dashboard tenant admin
+  |
+/api/admin/tenant/summary
+/api/admin/tenant/api-keys
+```
+
+El dashboard no permite elegir `tenantId`. Todas las acciones administrativas del tenant usan el `tenantId` resuelto desde el JWT.
+
+La creación de API keys desde el panel reutiliza `ApiKeysService`, manteniendo la lógica de hashing, `API_KEY_PEPPER`, prefijo visible y entrega de la API key en texto plano solo una vez.
+
+---
+
 ## Contratos De Autenticación
 
 La plataforma mantiene dos mecanismos de autenticación con propósitos distintos:
@@ -99,6 +128,32 @@ JWT
 ```
 
 El flujo `x-api-key` existente es parte del contrato público del producto y debe mantenerse estable. Los paneles administrativos con JWT se agregan como una capa adicional para administración web, no como reemplazo del consumo externo de la API.
+
+Endpoints JWT actuales:
+
+```txt
+POST /api/auth/register
+  -> crea tenant + usuario tenant_admin inicial
+  -> devuelve accessToken
+
+POST /api/auth/login
+  -> valida email/password
+  -> devuelve accessToken
+
+GET /api/auth/me
+  -> requiere Authorization: Bearer <token>
+  -> devuelve usuario autenticado, rol y tenantId
+
+GET /api/admin/tenant/summary
+  -> requiere JWT tenant_admin
+  -> devuelve métricas del tenant autenticado
+
+POST /api/admin/tenant/api-keys
+  -> requiere JWT tenant_admin
+  -> crea API key para el tenant autenticado
+```
+
+El guard JWT valida el bearer token, resuelve el usuario autenticado desde el payload y adjunta `request.user`. Las rutas administrativas futuras deben usar JWT y validación de roles en backend.
 
 Reglas:
 - no cambiar el contrato actual de `/api/ask` con `x-api-key`
@@ -360,6 +415,7 @@ La visibilidad de uso utiliza paginación offset con `page` y `limit`. Los filtr
 Tablas principales:
 - tenants
 - api_keys
+- users
 - documents
 - document_chunks
 - conversations

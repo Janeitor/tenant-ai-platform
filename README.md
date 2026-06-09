@@ -157,6 +157,8 @@ Si Docker no está iniciado, los servicios locales de PostgreSQL, Redis y MinIO 
 
 `apps/client-demo` es una aplicación cliente de ejemplo. Está incluida en el monorepo con fines demostrativos, pero se comporta como un sistema externo de un cliente: llama a la API de Tenant AI mediante HTTP y mantiene la API key del tenant en una variable de entorno server-side.
 
+`apps/web` es el panel administrativo web del MVP. Incluye login, registro de tenant admin, dashboard del tenant y creación de API keys desde una sesión JWT.
+
 ## Guía De Instalación Y Prueba Local
 
 Esta guía está pensada para que el profesor o evaluador pueda levantar el MVP localmente y probar el flujo completo sin tener que deducir pasos intermedios.
@@ -600,6 +602,65 @@ Para el despliegue cloud validado del MVP, ver:
 
 ```txt
 docs/cloud-deployment.md
+```
+
+## Admin Web
+
+El proyecto incluye un panel administrativo web en:
+
+```txt
+apps/web
+```
+
+Este panel representa la experiencia del administrador del tenant. En el MVP permite:
+
+- crear una cuenta administradora de tenant
+- iniciar sesión con email y password
+- consultar un dashboard básico del tenant
+- ver métricas de documentos, chunks y usage logs
+- crear API keys para integrar la API RAG desde sistemas externos
+
+El panel usa JWT y no reemplaza el consumo API-first con `x-api-key`. La API key se usa para integraciones externas; el JWT se usa para sesiones humanas dentro del panel.
+
+Crear el archivo local:
+
+```txt
+apps/web/.env.local
+```
+
+Contenido:
+
+```env
+TENANT_AI_API_URL=http://localhost:3000/api
+```
+
+Ejecutar:
+
+```bash
+npm run dev --workspace @tenant-ai/web
+```
+
+Abrir:
+
+```txt
+http://localhost:3002
+```
+
+Flujo esperado:
+
+```txt
+/register
+  -> crea tenant + tenant_admin
+  -> guarda JWT en el navegador
+  -> redirige a /dashboard
+
+/login
+  -> obtiene JWT
+  -> redirige a /dashboard
+
+/dashboard
+  -> consulta summary del tenant autenticado
+  -> permite crear API keys del tenant
 ```
 
 ## Integración Continua
@@ -1174,9 +1235,10 @@ ApiKey
 Document
 DocumentChunk
 UsageLog
+User
 ```
 
-La tabla `tenants` es la entidad base para el aislamiento multi-tenant. Futuras entidades de negocio como API keys, documentos, chunks, conversaciones y usage logs deben incluir `tenantId`.
+La tabla `tenants` es la entidad base para el aislamiento multi-tenant. Las entidades de negocio como API keys, documentos, chunks, usage logs y usuarios administradores deben mantener relación con el tenant cuando corresponda.
 
 Después de ejecutar:
 
@@ -1191,6 +1253,7 @@ la base de datos local debe contener, como mínimo, estas tablas:
 | `_prisma_migrations` | Registro interno de Prisma para saber qué migraciones ya fueron aplicadas |
 | `tenants` | Empresas o clientes que usan la plataforma |
 | `api_keys` | API keys asociadas a tenants para autenticar llamadas protegidas |
+| `users` | Usuarios humanos para futuros paneles administrativos, con rol `tenant_admin` o `system_admin` |
 | `documents` | Metadata de documentos subidos por cada tenant |
 | `document_chunks` | Fragmentos de texto extraídos de documentos, junto con `tokenCount` y embeddings |
 | `usage_logs` | Registro de uso de `/api/ask`, tokens, provider, modelo y métricas de contexto |
@@ -1200,6 +1263,7 @@ Relación conceptual principal:
 ```mermaid
 erDiagram
   tenants ||--o{ api_keys : owns
+  tenants ||--o{ users : owns
   tenants ||--o{ documents : owns
   tenants ||--o{ document_chunks : owns
   tenants ||--o{ usage_logs : owns
@@ -1238,6 +1302,114 @@ x-api-key: tai_...
 ```
 
 `ApiKeyAuthGuard` valida el header, resuelve el tenant propietario y adjunta metadata de API key autenticada al request. Los endpoints de negocio deben usar el tenant resuelto desde la API key en lugar de confiar en `tenantId` desde request bodies.
+
+## Autenticación JWT Para Paneles Administrativos
+
+La API también incluye una base de autenticación JWT para futuros paneles web administrativos.
+
+Este mecanismo está pensado para usuarios humanos:
+
+```txt
+tenant_admin
+system_admin
+```
+
+No reemplaza el contrato público `x-api-key`. Los endpoints de integración como `/api/ask`, `/api/documents`, `/api/retrieval/search` y `/api/usage` siguen protegidos por `ApiKeyAuthGuard`.
+
+Endpoints actuales de autenticación admin:
+
+```txt
+POST /api/auth/register
+POST /api/auth/login
+GET  /api/auth/me
+GET  /api/admin/tenant/summary
+POST /api/admin/tenant/api-keys
+```
+
+`POST /api/auth/register` crea un tenant y un usuario `tenant_admin` inicial para ese tenant. Este flujo se usa como base MVP para habilitar acceso administrativo futuro.
+
+Ejemplo de registro:
+
+```powershell
+$registerBody = @{
+  name = "Admin Demo"
+  email = "admin-demo@example.com"
+  password = "password123"
+  companyName = "Admin Demo Company"
+} | ConvertTo-Json
+
+$registerResponse = Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://localhost:3000/api/auth/register" `
+  -ContentType "application/json" `
+  -Body $registerBody
+```
+
+La respuesta devuelve:
+
+```txt
+accessToken
+user
+```
+
+El `accessToken` debe enviarse en rutas admin protegidas usando:
+
+```txt
+Authorization: Bearer <accessToken>
+```
+
+Ejemplo para consultar el usuario autenticado:
+
+```powershell
+$adminToken = $registerResponse.accessToken
+
+$meResponse = Invoke-RestMethod `
+  -Method Get `
+  -Uri "http://localhost:3000/api/auth/me" `
+  -Headers @{"Authorization"="Bearer $adminToken"}
+
+$meResponse | ConvertTo-Json -Depth 5
+```
+
+Variables requeridas:
+
+```env
+JWT_SECRET=change-me-in-local-env
+JWT_EXPIRES_IN=1d
+```
+
+`JWT_SECRET` debe ser un secreto largo y distinto por ambiente. No debe subirse a Git.
+
+Endpoints administrativos del tenant:
+
+```txt
+GET /api/admin/tenant/summary
+  -> requiere Authorization: Bearer <accessToken>
+  -> requiere rol tenant_admin
+  -> devuelve tenant, métricas y últimos usage logs
+
+POST /api/admin/tenant/api-keys
+  -> requiere Authorization: Bearer <accessToken>
+  -> requiere rol tenant_admin
+  -> crea una API key para el tenant autenticado
+```
+
+En ambos casos, el `tenantId` se resuelve desde el JWT. El cliente no envía `tenantId` en URL, query params ni body.
+
+Ejemplo para crear una API key desde sesión admin:
+
+```powershell
+$apiKeyFromAdmin = Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://localhost:3000/api/admin/tenant/api-keys" `
+  -Headers @{"Authorization"="Bearer $adminToken"} `
+  -ContentType "application/json" `
+  -Body '{"name":"Dashboard generated key"}'
+
+$apiKeyFromAdmin | ConvertTo-Json -Depth 5
+```
+
+La respuesta incluye `apiKey` en texto plano solo una vez. El panel debe mostrarla para copia inmediata y advertir que no se volverá a mostrar.
 
 ## Seguimiento De Vulnerabilidades
 
