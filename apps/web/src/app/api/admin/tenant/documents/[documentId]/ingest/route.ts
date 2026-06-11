@@ -2,7 +2,16 @@ import { NextResponse, type NextRequest } from 'next/server';
 
 const tenantAiApiUrl = process.env.TENANT_AI_API_URL;
 
-export async function POST(request: NextRequest): Promise<NextResponse> {
+interface RouteContext {
+  params: Promise<{
+    documentId: string;
+  }>;
+}
+
+export async function POST(
+  request: NextRequest,
+  context: RouteContext,
+): Promise<NextResponse> {
   if (!tenantAiApiUrl) {
     return NextResponse.json(
       { message: 'Tenant AI API URL is not configured' },
@@ -19,16 +28,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const body = await request.json();
+  const { documentId } = await context.params;
 
-  const response = await fetch(`${tenantAiApiUrl}/admin/tenant/api-keys`, {
-    method: 'POST',
-    headers: {
-      Authorization: authorization,
-      'Content-Type': 'application/json',
+  const response = await fetch(
+    `${tenantAiApiUrl}/admin/tenant/documents/${documentId}/ingest`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: authorization,
+      },
     },
-    body: JSON.stringify(body),
-  });
+  );
 
   const responseBody = await response.json();
 

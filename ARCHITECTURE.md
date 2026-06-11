@@ -103,11 +103,54 @@ Dashboard tenant admin
   |
 /api/admin/tenant/summary
 /api/admin/tenant/api-keys
+/api/admin/tenant/documents
 ```
 
-El dashboard no permite elegir `tenantId`. Todas las acciones administrativas del tenant usan el `tenantId` resuelto desde el JWT.
+El panel usa un menú lateral con secciones separadas:
+
+```txt
+/dashboard
+  -> métricas generales y uso reciente
+
+/api-keys
+  -> creación y listado seguro de API keys del tenant
+
+/documents
+  -> subida, ingestion y listado de documentos del tenant
+
+/usage
+  -> vista dedicada de uso reciente
+```
+
+El menú lateral identifica el tenant activo para que el administrador sepa sobre qué empresa está operando. El dashboard y las páginas administrativas no permiten elegir `tenantId`. Todas las acciones administrativas del tenant usan el `tenantId` resuelto desde el JWT.
 
 La creación de API keys desde el panel reutiliza `ApiKeysService`, manteniendo la lógica de hashing, `API_KEY_PEPPER`, prefijo visible y entrega de la API key en texto plano solo una vez.
+
+El listado de API keys consume `GET /api/admin/tenant/api-keys` y devuelve solo metadatos seguros: identificador, nombre, prefijo, fecha de creación y estado de revocación. No expone `keyHash` ni la API key completa.
+
+La vista de documentos consume `GET /api/admin/tenant/documents` y muestra solo documentos filtrados por el tenant del JWT. No expone `storageKey` ni permite consultar documentos de otros tenants.
+
+La subida administrativa de documentos consume `POST /api/admin/tenant/documents/upload`. Este endpoint reutiliza `DocumentsService.upload`, por lo que mantiene las mismas reglas de storage, MIME type, tamaño máximo y propiedad por tenant que el endpoint público con `x-api-key`.
+
+La ingestion administrativa consume `POST /api/admin/tenant/documents/:documentId/ingest`. Este endpoint reutiliza `IngestionService.ingestDocument`, por lo que el procesamiento sigue filtrando por `tenantId`, extrae texto, genera chunks, calcula embeddings y actualiza el estado del documento a `ready`.
+
+Si ocurre un error durante ingestion, `IngestionService` actualiza el documento a `failed` antes de relanzar el error. Esto evita dejar documentos bloqueados en `processing` y permite que el panel administrativo ofrezca reintento de ingestion para documentos fallidos.
+
+Estados operativos del documento:
+
+```txt
+uploaded
+  -> archivo almacenado, pendiente de ingestion
+
+processing
+  -> ingestion en curso
+
+ready
+  -> chunks y embeddings disponibles para retrieval
+
+failed
+  -> ingestion fallida, permite reintento
+```
 
 ---
 
@@ -151,6 +194,22 @@ GET /api/admin/tenant/summary
 POST /api/admin/tenant/api-keys
   -> requiere JWT tenant_admin
   -> crea API key para el tenant autenticado
+
+GET /api/admin/tenant/api-keys
+  -> requiere JWT tenant_admin
+  -> lista API keys del tenant autenticado sin exponer secretos
+
+GET /api/admin/tenant/documents
+  -> requiere JWT tenant_admin
+  -> lista documentos del tenant autenticado
+
+POST /api/admin/tenant/documents/upload
+  -> requiere JWT tenant_admin
+  -> sube documento para el tenant autenticado
+
+POST /api/admin/tenant/documents/:documentId/ingest
+  -> requiere JWT tenant_admin
+  -> ingesta documento del tenant autenticado
 ```
 
 El guard JWT valida el bearer token, resuelve el usuario autenticado desde el payload y adjunta `request.user`. Las rutas administrativas futuras deben usar JWT y validación de roles en backend.

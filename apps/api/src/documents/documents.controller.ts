@@ -16,42 +16,11 @@ import { type ApiKeyAuthenticatedRequest } from '../auth/api-key-authenticated-r
 import { CreateDocumentDto } from './dto/create-document.dto';
 import { DocumentsService } from './documents.service';
 import {
-  isAllowedDocumentMimeType,
-  MAX_DOCUMENT_UPLOAD_SIZE_BYTES,
-} from './documents-upload.validation';
+  documentUploadOptions,
+  type UploadedDocumentFile,
+} from './documents-upload.options';
 
 type DocumentResponse = Awaited<ReturnType<DocumentsService['create']>>;
-type UploadedDocumentFile = {
-  originalname: string;
-  mimetype: string;
-  size: number;
-  buffer: Buffer;
-};
-type MulterFileFilterCallback = (
-  error: Error | null,
-  acceptFile: boolean,
-) => void;
-type MulterFileMetadata = {
-  mimetype: string;
-};
-
-const documentUploadOptions = {
-  limits: {
-    fileSize: MAX_DOCUMENT_UPLOAD_SIZE_BYTES,
-  },
-  fileFilter: (
-    _request: unknown,
-    file: MulterFileMetadata,
-    callback: MulterFileFilterCallback,
-  ): void => {
-    if (!isAllowedDocumentMimeType(file.mimetype)) {
-      callback(new BadRequestException('Unsupported document MIME type'), false);
-      return;
-    }
-
-    callback(null, true);
-  },
-};
 
 @Controller('documents')
 @UseGuards(ApiKeyAuthGuard)

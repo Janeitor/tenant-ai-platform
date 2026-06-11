@@ -66,30 +66,31 @@ export class IngestionService {
             },
         });
 
-        const storedObject = await this.objectStorage.getObject({
-            key: document.storageKey,
-        });
+        try {
+            const storedObject = await this.objectStorage.getObject({
+                key: document.storageKey,
+            });
 
-        const content = await this.documentTextExtractor.extractText({
-            body: storedObject.body,
-            mimeType: document.mimeType,
-        });
-        const chunks = this.splitIntoChunks(content);
+            const content = await this.documentTextExtractor.extractText({
+                body: storedObject.body,
+                mimeType: document.mimeType,
+            });
+            const chunks = this.splitIntoChunks(content);
 
-        await this.prisma.documentChunk.deleteMany({
-            where: {
-                documentId: document.id,
-                tenantId,
-            },
-        });
+            await this.prisma.documentChunk.deleteMany({
+                where: {
+                    documentId: document.id,
+                    tenantId,
+                },
+            });
 
-        for (const [index, chunk] of chunks.entries()) {
-            const embedding = await this.embeddingsService.generateEmbedding(chunk);
-            const tokenCount = estimateTokenCount(chunk);
+            for (const [index, chunk] of chunks.entries()) {
+                const embedding = await this.embeddingsService.generateEmbedding(chunk);
+                const tokenCount = estimateTokenCount(chunk);
 
-            this.validateEmbeddingDimensions(embedding.embedding, embedding.dimensions);
+                this.validateEmbeddingDimensions(embedding.embedding, embedding.dimensions);
 
-            await this.prisma.$executeRaw`
+                await this.prisma.$executeRaw`
         INSERT INTO "document_chunks" (
           "id",
           "tenantId",
@@ -111,22 +112,34 @@ export class IngestionService {
           now()
         )
       `;
-        }
+            }
 
-        await this.prisma.document.update({
-            where: {
-                id: document.id,
-            },
-            data: {
+            await this.prisma.document.update({
+                where: {
+                    id: document.id,
+                },
+                data: {
+                    status: 'ready',
+                },
+            });
+
+            return {
+                documentId: document.id,
                 status: 'ready',
-            },
-        });
-
-        return {
-            documentId: document.id,
-            status: 'ready',
-            chunksCreated: chunks.length,
-        };
+                chunksCreated: chunks.length,
+            };
+        } catch (error) {
+            await this.prisma.document.update({
+                where: {
+                    id: document.id,
+                },
+                data: {
+                    status: 'failed',
+                },
+            });
+            
+            throw error;
+        }
     }
 
     private splitIntoChunks(content: string): string[] {

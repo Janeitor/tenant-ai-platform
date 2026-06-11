@@ -262,4 +262,53 @@ describe('IngestionService', () => {
 
     expect(prisma.$executeRaw).not.toHaveBeenCalled();
   });
+
+  it('marks document as failed when ingestion fails', async () => {
+    prisma.document.findFirst.mockResolvedValue({
+      id: 'document_1',
+      tenantId: 'tenant_1',
+      mimeType: 'text/plain',
+      storageKey: 'tenant_1/documents/document_1.txt',
+    });
+
+    objectStorage.getObject.mockResolvedValue({
+      key: 'tenant_1/documents/document_1.txt',
+      body: Buffer.from('Hello world.'),
+      contentType: 'text/plain',
+    });
+
+    documentTextExtractor.extractText.mockRejectedValue(
+      new Error('Text extraction failed'),
+    );
+
+    const service = new IngestionService(
+      prisma as never,
+      objectStorage as never,
+      embeddingsService as never,
+      documentTextExtractor as never,
+      configService as never,
+    );
+
+    await expect(
+      service.ingestDocument('tenant_1', 'document_1'),
+    ).rejects.toThrow('Text extraction failed');
+
+    expect(prisma.document.update).toHaveBeenCalledWith({
+      where: {
+        id: 'document_1',
+      },
+      data: {
+        status: 'processing',
+      },
+    });
+
+    expect(prisma.document.update).toHaveBeenLastCalledWith({
+      where: {
+        id: 'document_1',
+      },
+      data: {
+        status: 'failed',
+      },
+    });
+  });
 });

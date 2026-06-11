@@ -157,7 +157,7 @@ Si Docker no está iniciado, los servicios locales de PostgreSQL, Redis y MinIO 
 
 `apps/client-demo` es una aplicación cliente de ejemplo. Está incluida en el monorepo con fines demostrativos, pero se comporta como un sistema externo de un cliente: llama a la API de Tenant AI mediante HTTP y mantiene la API key del tenant en una variable de entorno server-side.
 
-`apps/web` es el panel administrativo web del MVP. Incluye login, registro de tenant admin, dashboard del tenant y creación de API keys desde una sesión JWT.
+`apps/web` es el panel administrativo web del MVP. Incluye login, registro de tenant admin, dashboard del tenant, listado de documentos, visibilidad de uso y creación/listado de API keys desde una sesión JWT.
 
 ## Guía De Instalación Y Prueba Local
 
@@ -339,55 +339,52 @@ status: ok
 service: tenant-ai-api
 ```
 
-### 8. Crear Un Tenant Y Una API Key
+### 8. Registrar Tenant Admin Y Crear Una API Key
 
-En el alcance actual del MVP, la creación de tenants y API keys se realiza manualmente mediante endpoints y comandos. Las vistas administrativas para crear tenants, administrar clientes, generar credenciales o revocar API keys quedan consideradas como mejora futura.
+La configuración inicial del tenant se realiza desde el panel administrativo web incluido en `apps/web`. Esta vista representa la experiencia del administrador del cliente dentro del MVP.
 
-Este paso permite simular la configuración inicial que, en una versión más completa del producto, realizaría un administrador desde una interfaz web.
+Iniciar el panel en otra terminal:
 
-Las llamadas protegidas usan el header:
+```bash
+npm run dev --workspace @tenant-ai/web
+```
+
+Abrir en el navegador:
+
+```txt
+http://localhost:3002
+```
+
+Flujo recomendado:
+
+```txt
+/register
+  -> crea el tenant
+  -> crea el usuario tenant_admin inicial
+  -> inicia sesión en el panel
+
+/dashboard
+  -> muestra métricas iniciales del tenant
+  -> confirma que el usuario está operando sobre el tenant correcto
+
+/api-keys
+  -> permite crear una API key para integrar la API RAG
+  -> lista las API keys existentes mostrando solo metadatos seguros
+```
+
+La API key creada desde el panel se muestra en texto plano solo una vez. Debe copiarse en ese momento si se usará luego en `client-demo` o en una integración externa.
+
+Conceptualmente, esa API key será enviada por los sistemas cliente en el header:
 
 ```txt
 x-api-key: tai_...
 ```
 
-La API key resuelve el tenant. El cliente no debe enviar `tenantId`.
-
-Crear un tenant:
-
-```powershell
-$tenant = Invoke-RestMethod `
-  -Method Post `
-  -Uri "http://localhost:3000/api/tenants" `
-  -ContentType "application/json" `
-  -Body '{"name":"Demo Company","slug":"demo-company"}'
-
-$tenant
-```
-
-Crear una API key para ese tenant:
-
-```powershell
-$apiKeyResponse = Invoke-RestMethod `
-  -Method Post `
-  -Uri "http://localhost:3000/api/tenants/$($tenant.id)/api-keys" `
-  -ContentType "application/json" `
-  -Body '{"name":"Local demo key"}'
-
-$apiKeyResponse
-```
-
-La respuesta incluye la API key en texto plano. Esta API key se muestra solo una vez. Guardarla en una variable para los siguientes pasos:
-
-```powershell
-$apiKey = $apiKeyResponse.key
-```
-
-Si se cerró la terminal o no se copió la API key al crearla, se debe generar una nueva API key para el tenant.
+La API key resuelve el tenant en backend. El cliente no debe enviar `tenantId`.
 
 ### 9. Subir E Ingestar Un Documento
 
-En el alcance actual del MVP, la carga e ingestion de documentos se realiza manualmente mediante endpoints y comandos. Las vistas administrativas para subir, ingestar, eliminar o administrar documentos quedan consideradas como mejora futura.
+La carga e ingestion de documentos se realiza desde la vista **Documentos** del panel administrativo. Esta vista permite al administrador del tenant subir archivos, revisar su estado e iniciar el procesamiento necesario para que el contenido quede disponible para consultas RAG.
 
 Este proceso tiene dos pasos:
 
@@ -405,29 +402,33 @@ Este proceso tiene dos pasos:
    -> guarda los chunks y vectores en PostgreSQL + pgvector
 ```
 
-Primero, subir un documento de texto o PDF:
+Estados relevantes del documento:
 
-```powershell
-$document = curl.exe -X POST `
-  http://localhost:3000/api/documents/upload `
-  -H "x-api-key: $apiKey" `
-  -F "file=@demo-files/sample-document.txt"
+| Estado | Significado | Acción esperada |
+| --- | --- | --- |
+| `uploaded` | El archivo fue almacenado y existe metadata en base de datos, pero todavía no tiene chunks ni embeddings | Puede ingestar |
+| `processing` | La ingestion está en ejecución | No se debe iniciar otra ingestion simultánea |
+| `ready` | La ingestion terminó correctamente y el documento ya puede participar en `/api/ask` | Queda disponible para consultas RAG |
+| `failed` | La ingestion falló durante extracción, chunking, embeddings o persistencia | Puede reintentarse la ingestion |
 
-$documentObject = $document | ConvertFrom-Json
+Flujo recomendado en el panel:
+
+```txt
+/documents
+  -> seleccionar un archivo text/plain o PDF
+  -> presionar Subir documento
+  -> verificar que el documento aparezca con estado uploaded
+  -> presionar Ingestar
+  -> esperar que el estado cambie a ready
 ```
+
+La vista **Documentos** muestra nombre, tipo, tamaño, estado, fecha de creación y acciones disponibles para cada documento.
 
 Los archivos PDF son soportados cuando contienen texto seleccionable. PDFs escaneados o basados solo en imágenes requieren OCR y están fuera del alcance actual del MVP.
 
-Luego, usar el `id` devuelto para ingestar el documento:
-
-```powershell
-Invoke-RestMethod `
-  -Method Post `
-  -Uri "http://localhost:3000/api/documents/$($documentObject.id)/ingest" `
-  -Headers @{"x-api-key"=$apiKey}
-```
-
 La ingestion debe ejecutarse después del upload. Si un documento fue subido pero no ingestado, existe como archivo almacenado, pero todavía no puede ser consultado por `/api/ask` porque no tiene chunks ni embeddings disponibles para retrieval.
+
+Si la ingestion falla, el backend marca el documento como `failed`. Desde el panel administrativo se puede presionar nuevamente la acción de ingestion para reintentar el procesamiento. Esto evita que un documento quede indefinidamente en `processing` y permite recuperar fallos temporales, por ejemplo errores de extracción, storage o embeddings.
 
 ```mermaid
 flowchart TD
@@ -616,9 +617,16 @@ Este panel representa la experiencia del administrador del tenant. En el MVP per
 
 - crear una cuenta administradora de tenant
 - iniciar sesión con email y password
+- navegar mediante un menú lateral de administración
+- identificar el tenant activo desde todas las pantallas del panel
 - consultar un dashboard básico del tenant
 - ver métricas de documentos, chunks y usage logs
 - crear API keys para integrar la API RAG desde sistemas externos
+- listar API keys existentes mostrando solo metadatos seguros
+- subir documentos del tenant desde el panel
+- iniciar la ingestion de documentos desde el panel
+- listar documentos pertenecientes al tenant autenticado
+- revisar uso reciente desde una vista dedicada
 
 El panel usa JWT y no reemplaza el consumo API-first con `x-api-key`. La API key se usa para integraciones externas; el JWT se usa para sesiones humanas dentro del panel.
 
@@ -660,7 +668,23 @@ Flujo esperado:
 
 /dashboard
   -> consulta summary del tenant autenticado
+  -> muestra métricas y uso reciente
+
+/api-keys
   -> permite crear API keys del tenant
+  -> muestra la API key en texto plano solo una vez
+  -> lista API keys existentes sin exponer keyHash ni la API key completa
+
+/documents
+  -> permite subir documentos text/plain o PDF
+  -> permite iniciar ingestion de documentos subidos
+  -> permite reintentar ingestion cuando un documento queda failed
+  -> lista documentos del tenant autenticado
+  -> muestra nombre, MIME type, tamaño, estado y fecha de creación
+
+/usage
+  -> muestra consultas recientes del tenant
+  -> muestra provider, modelo, tokens y chunks seleccionados
 ```
 
 ## Integración Continua
@@ -1324,6 +1348,10 @@ POST /api/auth/login
 GET  /api/auth/me
 GET  /api/admin/tenant/summary
 POST /api/admin/tenant/api-keys
+GET  /api/admin/tenant/api-keys
+GET  /api/admin/tenant/documents
+POST /api/admin/tenant/documents/upload
+POST /api/admin/tenant/documents/:documentId/ingest
 ```
 
 `POST /api/auth/register` crea un tenant y un usuario `tenant_admin` inicial para ese tenant. Este flujo se usa como base MVP para habilitar acceso administrativo futuro.
@@ -1392,9 +1420,32 @@ POST /api/admin/tenant/api-keys
   -> requiere Authorization: Bearer <accessToken>
   -> requiere rol tenant_admin
   -> crea una API key para el tenant autenticado
+
+GET /api/admin/tenant/api-keys
+  -> requiere Authorization: Bearer <accessToken>
+  -> requiere rol tenant_admin
+  -> lista API keys del tenant autenticado
+  -> devuelve solo id, nombre, prefijo, estado y fecha de creación
+
+GET /api/admin/tenant/documents
+  -> requiere Authorization: Bearer <accessToken>
+  -> requiere rol tenant_admin
+  -> lista documentos del tenant autenticado
+
+POST /api/admin/tenant/documents/upload
+  -> requiere Authorization: Bearer <accessToken>
+  -> requiere rol tenant_admin
+  -> sube un archivo para el tenant autenticado
+  -> deja el documento en estado uploaded
+
+POST /api/admin/tenant/documents/:documentId/ingest
+  -> requiere Authorization: Bearer <accessToken>
+  -> requiere rol tenant_admin
+  -> procesa el documento del tenant autenticado
+  -> extrae texto, crea chunks, genera embeddings y deja el documento en ready
 ```
 
-En ambos casos, el `tenantId` se resuelve desde el JWT. El cliente no envía `tenantId` en URL, query params ni body.
+En estos endpoints, el `tenantId` se resuelve desde el JWT. El cliente no envía `tenantId` en URL, query params ni body.
 
 Ejemplo para crear una API key desde sesión admin:
 
@@ -1410,6 +1461,43 @@ $apiKeyFromAdmin | ConvertTo-Json -Depth 5
 ```
 
 La respuesta incluye `apiKey` en texto plano solo una vez. El panel debe mostrarla para copia inmediata y advertir que no se volverá a mostrar.
+
+Ejemplo para listar API keys existentes desde sesión admin:
+
+```powershell
+$tenantApiKeys = Invoke-RestMethod `
+  -Method Get `
+  -Uri "http://localhost:3000/api/admin/tenant/api-keys" `
+  -Headers @{"Authorization"="Bearer $adminToken"}
+
+$tenantApiKeys | ConvertTo-Json -Depth 5
+```
+
+Este endpoint no devuelve la API key completa ni el hash almacenado. Solo entrega información segura para administración visual, como nombre, prefijo, estado y fecha de creación.
+
+Ejemplo para subir un documento desde sesión admin:
+
+```powershell
+$uploadedDocument = curl.exe -X POST `
+  "http://localhost:3000/api/admin/tenant/documents/upload" `
+  -H "Authorization: Bearer $adminToken" `
+  -F "file=@demo-files/sample-document.txt"
+
+$uploadedDocumentObject = $uploadedDocument | ConvertFrom-Json
+```
+
+Ejemplo para ingestar el documento subido:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://localhost:3000/api/admin/tenant/documents/$($uploadedDocumentObject.id)/ingest" `
+  -Headers @{"Authorization"="Bearer $adminToken"}
+```
+
+La subida y la ingestion se mantienen separadas de forma intencional. Esto permite mostrar en el MVP las dos etapas del flujo documental: primero se registra y almacena el archivo; luego se procesa para extracción de texto, chunking y embeddings.
+
+Cuando la ingestion termina correctamente, el documento queda en `ready`. Si ocurre un error durante el procesamiento, queda en `failed` y el administrador del tenant puede reintentar la ingestion desde el panel.
 
 ## Seguimiento De Vulnerabilidades
 

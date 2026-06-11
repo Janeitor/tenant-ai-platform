@@ -12,5 +12,6 @@ import { DocumentTextExtractorService } from './document-text-extractor.service'
   imports: [ApiKeysModule, AuthModule, EmbeddingsModule, StorageModule],
   controllers: [IngestionController],
   providers: [IngestionService, DocumentTextExtractorService],
+  exports: [IngestionService],
 })
 export class IngestionModule {}

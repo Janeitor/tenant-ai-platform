@@ -19,7 +19,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const response = await fetch(`${tenantAiApiUrl}/admin/tenant/api-keys`, {
+  const response = await fetch(`${tenantAiApiUrl}/admin/tenant/documents`, {
     method: 'GET',
     headers: {
       Authorization: authorization,
@@ -50,15 +50,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const body = await request.json();
+  const formData = await request.formData();
 
-  const response = await fetch(`${tenantAiApiUrl}/admin/tenant/api-keys`, {
+  const response = await fetch(`${tenantAiApiUrl}/admin/tenant/documents/upload`, {
     method: 'POST',
     headers: {
       Authorization: authorization,
-      'Content-Type': 'application/json',
     },
-    body: JSON.stringify(body),
+    body: formData,
   });
 
   const responseBody = await response.json();
