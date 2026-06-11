@@ -343,6 +343,9 @@ service: tenant-ai-api
 
 La configuración inicial del tenant se realiza desde el panel administrativo web incluido en `apps/web`. Esta vista representa la experiencia del administrador del cliente dentro del MVP.
 
+> [!NOTE]
+> En el MVP, el registro crea el tenant directamente para facilitar la evaluación local y demostrar el flujo completo sin intervención manual de un administrador global. En una versión productiva, la creación de tenants debería incorporar validación adicional, por ejemplo aprobación por `system_admin`, invitación controlada, verificación de email o validación de dominio corporativo.
+
 Iniciar el panel en otra terminal:
 
 ```bash
@@ -1355,6 +1358,14 @@ POST /api/admin/tenant/documents/:documentId/ingest
 ```
 
 `POST /api/auth/register` crea un tenant y un usuario `tenant_admin` inicial para ese tenant. Este flujo se usa como base MVP para habilitar acceso administrativo futuro.
+
+En el alcance actual, este registro es directo para simplificar la prueba del MVP. No implementa todavía aprobación de tenants, verificación de email ni validación de dominio corporativo. Para un escenario productivo B2B, este flujo debería endurecerse con una de estas alternativas:
+
+- creación de tenants solo por un usuario `system_admin`
+- registro inicial con estado `pending`
+- aprobación manual antes de habilitar el tenant
+- invitaciones controladas para administradores del cliente
+- verificación de email o dominio de la empresa
 
 Ejemplo de registro:
 
