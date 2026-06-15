@@ -136,26 +136,30 @@ export default function DocumentsPage() {
 
     setIngestingDocumentId(documentId);
 
-    const response = await fetch(
-      `/api/admin/tenant/documents/${documentId}/ingest`,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
+    try {
+      const response = await fetch(
+        `/api/admin/tenant/documents/${documentId}/ingest`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         },
-      },
-    );
+      );
 
-    const responseBody = await response.json();
+      const responseBody = await response.json();
 
-    setIngestingDocumentId(null);
+      if (!response.ok) {
+        setError(responseBody.message ?? 'No fue posible ingestar el documento');
+        return;
+      }
 
-    if (!response.ok) {
-      setError(responseBody.message ?? 'No fue posible ingestar el documento');
-      return;
+      setDocuments(await requestTenantDocuments(token));
+    } catch {
+      setError('No fue posible conectar con la API para ingestar el documento');
+    } finally {
+      setIngestingDocumentId(null);
     }
-
-    setDocuments(await requestTenantDocuments(token));
   }
 
   return (

@@ -19,7 +19,34 @@ Construir una plataforma orientada a producción con:
 - visibilidad del uso de tokens
 - arquitectura mantenible y tests automatizados
 
-El entregable inicial no es un prototipo desechable, pero tampoco representa el producto final completo. Es un MVP funcional construido con una base técnica pensada para evolucionar. Las funcionalidades implementadas deben seguir estándares de arquitectura, seguridad y mantenibilidad esperados para una versión productiva, dejando espacio para futuras mejoras como paneles de administración, automatización de despliegues, observabilidad avanzada, billing, RBAC y nuevas integraciones.
+El entregable inicial no es un prototipo desechable, pero tampoco representa el producto final completo. Es un MVP funcional construido con una base técnica pensada para evolucionar. Las funcionalidades implementadas deben seguir estándares de arquitectura, seguridad y mantenibilidad esperados para una versión productiva, dejando espacio para futuras mejoras como administración global avanzada, automatización de despliegues, observabilidad avanzada, billing, RBAC más granular y nuevas integraciones.
+
+## Alcance Del MVP Y Limitaciones Actuales
+
+El MVP permite demostrar el ciclo principal del producto:
+
+```txt
+tenant admin
+  -> crea su tenant desde el panel web
+  -> genera una API key del tenant
+  -> sube documentos
+  -> ejecuta ingestion
+  -> consulta documentos desde una aplicación cliente mediante /api/ask
+  -> revisa uso básico y fuentes
+```
+
+El alcance actual incluye panel administrativo del tenant, API RAG pública con `x-api-key`, client demo, ingestion de TXT/PDF con texto seleccionable, embeddings, búsqueda vectorial, respuestas con fuentes y usage logs.
+
+Limitaciones explícitas del MVP:
+
+| Área | Estado actual | Mejora futura |
+| ---- | ------------- | ------------- |
+| OCR | No incluido. Los PDFs escaneados o basados solo en imágenes no se procesan. | Integrar OCR para documentos escaneados. |
+| RLS | No se han activado políticas de Row-Level Security en PostgreSQL. | Agregar RLS como defensa adicional de aislamiento multi-tenant. |
+| Cifrado de chunks | Los chunks se almacenan en texto legible para facilitar retrieval y construcción de contexto. | Cifrado de contenido a nivel de aplicación con Key Vault/KMS. |
+| Billing | Se registran tokens y metadata de uso, pero no existe facturación real. | Cálculo de costos, planes, límites mensuales y alertas. |
+| Aprobación de tenants | El registro crea el tenant directamente para simplificar la evaluación. | Flujo de aprobación por `system_admin`, invitaciones y validación de dominio/email. |
+| Alcance por API key | Las API keys son tenant-scoped y acceden al repositorio documental del tenant. | Scopes o colecciones por API key dentro del mismo tenant. |
 
 ## Vista General De Arquitectura
 
@@ -44,13 +71,13 @@ flowchart TD
 
 Antes de ejecutar comandos del proyecto, el equipo debe tener instaladas estas herramientas base. Estas herramientas no se instalan con `npm install`; son prerequisitos del sistema operativo o del entorno de desarrollo.
 
-| Herramienta | Versión recomendada | Uso en el proyecto |
-| --- | --- | --- |
-| Node.js | 22 LTS | Ejecutar los workspaces `api`, `client-demo`, scripts de build y tests |
-| npm | 10.x o superior | Instalar dependencias y ejecutar scripts del monorepo |
-| Git | versión estable reciente | Clonar el repositorio y revisar cambios |
-| Docker Desktop | versión estable reciente | Levantar PostgreSQL, Redis y MinIO con Docker Compose |
-| Docker Compose | incluido en Docker Desktop | Ejecutar `docker compose up -d` |
+| Herramienta    | Versión recomendada        | Uso en el proyecto                                                     |
+| -------------- | -------------------------- | ---------------------------------------------------------------------- |
+| Node.js        | 22 LTS                     | Ejecutar los workspaces `api`, `client-demo`, scripts de build y tests |
+| npm            | 10.x o superior            | Instalar dependencias y ejecutar scripts del monorepo                  |
+| Git            | versión estable reciente   | Clonar el repositorio y revisar cambios                                |
+| Docker Desktop | versión estable reciente   | Levantar PostgreSQL, Redis y MinIO con Docker Compose                  |
+| Docker Compose | incluido en Docker Desktop | Ejecutar `docker compose up -d`                                        |
 
 Después de tener estas herramientas instaladas, `npm install` se usará más adelante para instalar las librerías propias del proyecto, como NestJS, Prisma, Next.js, OpenAI SDK, Jest, ESLint y otros paquetes declarados en los `package.json`.
 
@@ -166,14 +193,17 @@ Esta guía está pensada para que el profesor o evaluador pueda levantar el MVP 
 La guía sigue una única secuencia:
 
 ```txt
-1. Preparar el entorno
-2. Levantar servicios locales
-3. Preparar la base de datos
-4. Iniciar la API
-5. Crear tenant y API key
-6. Subir e ingestar documentos
-7. Consultar la API
-8. Ejecutar el client demo
+1. Clonar el repositorio
+2. Instalar dependencias
+3. Crear y revisar el archivo .env
+4. Levantar servicios locales con Docker Compose
+5. Preparar la base de datos con Prisma
+6. Ejecutar validaciones
+7. Iniciar la API
+8. Registrar tenant admin y crear API key desde el panel web
+9. Subir e ingestar documentos desde el panel web
+10. Consultar desde el client demo o validar /api/ask directamente
+11. Revisar usage logs generados por las consultas
 ```
 
 > [!IMPORTANT]
@@ -207,7 +237,7 @@ apps/web
 packages/shared
 ```
 
-`npm install` instala librerías del proyecto como NestJS, Prisma, Next.js, OpenAI SDK, Jest, ESLint y tooling de Cloudflare/OpenNext. No instala Docker, PostgreSQL, Redis, MinIO ni configura variables de entorno.
+`npm install` instala librerías del proyecto como NestJS, Prisma, Next.js, OpenAI SDK, Jest, ESLint y tooling declarado en los workspaces. No instala Docker, PostgreSQL, Redis, MinIO ni configura variables de entorno.
 
 ### 3. Crear Archivo `.env`
 
@@ -232,6 +262,15 @@ EMBEDDING_PROVIDER=local
 LLM_PROVIDER_NAME=local
 ```
 
+Con esta configuración no se realizan llamadas reales a OpenAI. El sistema usa providers locales para desarrollo:
+
+```txt
+embeddings locales determinísticos
+LLM local retrieval-only
+```
+
+Esto permite probar el flujo completo sin costo externo, incluyendo upload, ingestion, chunks, retrieval, fuentes y usage logs. Sin embargo, la respuesta no tendrá razonamiento generativo real de un LLM externo. La salida esperada será una respuesta básica construida directamente a partir de los chunks recuperados del documento.
+
 Para probar el flujo RAG con OpenAI, configurar además:
 
 ```env
@@ -242,6 +281,7 @@ OPENAI_EMBEDDING_MODEL=text-embedding-3-small
 OPENAI_MODEL=gpt-5-mini
 EMBEDDING_DIMENSIONS=1536
 ```
+En este caso la prueba, además de considerar el flujo completo, también devolverá una respuesta coherente con la información encontrada en los chunks previamente cargados.
 
 No subir `.env` a Git.
 
@@ -254,6 +294,8 @@ PostgreSQL + pgvector
 Redis
 MinIO
 ```
+
+No es necesario instalar PostgreSQL, Redis ni MinIO manualmente. El archivo `docker-compose.yml` ya define estos servicios con la configuración necesaria para el entorno local del MVP. Al ejecutar el comando siguiente, Docker descargará las imágenes necesarias, creará los contenedores y dejará disponibles los servicios requeridos por la API.
 
 Estos servicios se levantan al mismo tiempo con Docker Compose:
 
@@ -268,6 +310,8 @@ docker compose ps
 ```
 
 Si este comando falla, revisar que Docker Desktop esté abierto e iniciado.
+
+Los datos locales se mantienen en volúmenes Docker. Por eso, detener y volver a levantar los contenedores no elimina automáticamente la información almacenada en PostgreSQL o MinIO. Para borrar completamente los datos locales se debe eliminar explícitamente los volúmenes, acción que no forma parte del flujo normal de prueba del MVP.
 
 ### 5. Preparar Base De Datos Local
 
@@ -407,12 +451,12 @@ Este proceso tiene dos pasos:
 
 Estados relevantes del documento:
 
-| Estado | Significado | Acción esperada |
-| --- | --- | --- |
-| `uploaded` | El archivo fue almacenado y existe metadata en base de datos, pero todavía no tiene chunks ni embeddings | Puede ingestar |
-| `processing` | La ingestion está en ejecución | No se debe iniciar otra ingestion simultánea |
-| `ready` | La ingestion terminó correctamente y el documento ya puede participar en `/api/ask` | Queda disponible para consultas RAG |
-| `failed` | La ingestion falló durante extracción, chunking, embeddings o persistencia | Puede reintentarse la ingestion |
+| Estado       | Significado                                                                                              | Acción esperada                              |
+| ------------ | -------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| `uploaded`   | El archivo fue almacenado y existe metadata en base de datos, pero todavía no tiene chunks ni embeddings | Puede ingestar                               |
+| `processing` | La ingestion está en ejecución                                                                           | No se debe iniciar otra ingestion simultánea |
+| `ready`      | La ingestion terminó correctamente y el documento ya puede participar en `/api/ask`                      | Queda disponible para consultas RAG          |
+| `failed`     | La ingestion falló durante extracción, chunking, embeddings o persistencia                               | Puede reintentarse la ingestion              |
 
 Flujo recomendado en el panel:
 
@@ -446,9 +490,86 @@ flowchart TD
   Pgvector --> Ready["Documento status = ready"]
 ```
 
-### 10. Consultar La API
+### 10. Consultar Desde El Client Demo
 
-Hacer una pregunta:
+El MVP incluye una aplicación de ejemplo llamada `client-demo`. Esta vista emula la web o intranet de un cliente que integra Tenant AI para consultar documentos propios del tenant.
+
+En la demo actual, la interfaz representa una intranet notarial con un asistente de consultas. El usuario escribe una pregunta en pantalla y la aplicación cliente llama a Tenant AI sin exponer la API key en el navegador.
+
+El archivo `apps/client-demo/.env.local` no viene incluido en el repositorio porque contiene configuración local y la API key del tenant. Debe crearse manualmente.
+
+Crear:
+
+```txt
+apps/client-demo/.env.local
+```
+
+Contenido del archivo:
+
+```env
+TENANT_AI_API_URL=http://localhost:3000/api
+TENANT_AI_API_KEY=tai_your_tenant_api_key_created_in_step_8
+```
+
+El valor `TENANT_AI_API_KEY` debe reemplazarse por la API key creada desde el panel administrativo en el punto `8. Registrar Tenant Admin Y Crear Una API Key`.
+
+Iniciar el client demo:
+
+```bash
+npm run dev --workspace @tenant-ai/client-demo
+```
+
+Abrir:
+
+```txt
+http://localhost:3001
+```
+
+Flujo esperado:
+
+```txt
+Usuario escribe una pregunta en client-demo
+  -> client-demo llama a su propia ruta server-side
+  -> la ruta server-side agrega x-api-key
+  -> Tenant AI resuelve el tenant
+  -> Tenant AI consulta documentos ingestado del tenant
+  -> client-demo muestra respuesta y fuentes
+```
+
+El navegador nunca ve la API key del tenant. La API key queda en una variable de entorno server-side del client demo, del mismo modo en que una empresa real debería proteger credenciales de integración en su propio backend.
+
+Mínimo que necesita un cliente para integrarse:
+
+```txt
+1. Contar con una API key del tenant
+2. Guardar esa API key en un entorno seguro del lado servidor
+3. Construir una llamada HTTP hacia Tenant AI
+4. Enviar la pregunta del usuario en el body
+5. Enviar la API key en el header x-api-key
+6. Mostrar la respuesta y las fuentes devueltas por la API
+```
+
+Ejemplo mínimo de llamada HTTP desde un backend del cliente:
+
+```ts
+const response = await fetch('https://tenant-ai.example.com/api/ask', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-api-key': process.env.TENANT_AI_API_KEY,
+  },
+  body: JSON.stringify({
+    question: 'Que documentos necesito para firmar una compraventa?',
+    limit: 5,
+  }),
+});
+
+const result = await response.json();
+```
+
+El cliente no necesita conocer ni enviar `tenantId`. Tenant AI resuelve el tenant a partir de la API key. Esto permite que una empresa integre la herramienta desde cualquier stack tecnológico, siempre que pueda realizar una llamada HTTP desde un backend, serverless function o capa server-side equivalente.
+
+Validación técnica opcional por API directa:
 
 ```powershell
 $response = Invoke-RestMethod `
@@ -491,6 +612,18 @@ flowchart TD
 
 ### 11. Revisar Usage Logs
 
+La revisión básica de uso se puede realizar desde el panel administrativo del tenant.
+
+En el navegador:
+
+```txt
+http://localhost:3002/usage
+```
+
+La vista **Uso** permite revisar registros recientes asociados al tenant autenticado, incluyendo provider, modelo, tokens cuando están disponibles y métricas de contexto.
+
+Para validación técnica opcional, también se puede consultar directamente el endpoint protegido por API key:
+
 ```powershell
 $usage = Invoke-RestMethod `
   -Method Get `
@@ -502,60 +635,11 @@ $usage | ConvertTo-Json -Depth 5
 
 Los usage logs están acotados por tenant e incluyen métricas de tokens/contexto cuando están disponibles.
 
-### 12. Ejecutar El Client Demo
+## Referencia Técnica Del Proyecto
 
-En este punto ya existe:
+La guía anterior describe el flujo recomendado para levantar y probar el MVP localmente. Las siguientes secciones documentan los componentes técnicos principales del sistema, su propósito y consideraciones de operación.
 
-```txt
-tenant creado
-API key guardada en $apiKey
-documento subido
-documento ingestado
-API respondiendo preguntas
-```
-
-Ahora se puede configurar el client demo.
-
-El archivo `apps/client-demo/.env.local` no viene incluido en el repositorio porque contiene configuración local y una API key. Debe crearse manualmente.
-
-Crear:
-
-```txt
-apps/client-demo/.env.local
-```
-
-Contenido del archivo:
-
-```env
-TENANT_AI_API_URL=http://localhost:3000/api
-TENANT_AI_API_KEY=tai_your_tenant_api_key_created_in_step_8
-```
-
-El valor `TENANT_AI_API_KEY` debe reemplazarse por la API key creada en el paso `8. Crear Un Tenant Y Una API Key`.
-
-Si se está siguiendo el flujo en PowerShell y la variable `$apiKey` sigue disponible, se puede ver su valor con:
-
-```powershell
-$apiKey
-```
-
-Copiar ese valor en `TENANT_AI_API_KEY`.
-
-Iniciar el demo app:
-
-```bash
-npm run dev --workspace @tenant-ai/client-demo
-```
-
-Abrir:
-
-```txt
-http://localhost:3001
-```
-
-El demo simula una aplicación cliente para una notaría. Llama a su propia ruta server-side de Next.js, que luego llama a la API de Tenant AI con `x-api-key`. El navegador nunca ve la API key del tenant.
-
-## Client Demo
+### Client Demo
 
 El proyecto incluye una aplicación de ejemplo para integración de clientes:
 
@@ -582,8 +666,6 @@ y reenvía la solicitud a la API de Tenant AI con:
 x-api-key: tai_...
 ```
 
-La versión cloud está desplegada como Cloudflare Worker usando OpenNext, manteniendo el mismo manejo server-side de la API key.
-
 Ejecutar localmente:
 
 ```bash
@@ -602,13 +684,7 @@ Para detalles de integración de clientes, ver:
 docs/api-query-integration-guide.md
 ```
 
-Para el despliegue cloud validado del MVP, ver:
-
-```txt
-docs/cloud-deployment.md
-```
-
-## Admin Web
+### Admin Web
 
 El proyecto incluye un panel administrativo web en:
 
@@ -690,7 +766,7 @@ Flujo esperado:
   -> muestra provider, modelo, tokens y chunks seleccionados
 ```
 
-## Integración Continua
+### Integración Continua
 
 El repositorio incluye un workflow de GitHub Actions:
 
@@ -714,31 +790,7 @@ npm audit --audit-level=high
 
 El cliente Prisma se genera dentro de CI porque el output generado de Prisma está intencionalmente fuera de Git. Vulnerabilidades `high` o `critical` hacen fallar CI. Los hallazgos `moderate` conocidos están documentados en `docs/vulnerability-analysis.md`.
 
-## Infrastructure As Code
-
-El MVP incluye una configuración inicial de Terraform para infraestructura Cloudflare:
-
-```txt
-infra/terraform/cloudflare
-```
-
-Alcance actual de Terraform:
-
-```txt
-Bucket Cloudflare R2 usado para almacenar documentos de tenants
-```
-
-El bucket R2 existente fue importado al estado de Terraform y validado con `terraform plan`, que devolvió que no había cambios. El estado local de Terraform, archivos locales de variables y archivos de cache del provider están intencionalmente ignorados por Git:
-
-```txt
-infra/terraform/cloudflare/.terraform/
-infra/terraform/cloudflare/terraform.tfstate
-infra/terraform/cloudflare/terraform.tfvars
-```
-
-Los archivos Terraform committeados documentan la infraestructura esperada de Cloudflare R2 sin committear secretos. Las migraciones Prisma siguen siendo administradas por Prisma y pasos de release/CI/CD, no por Terraform.
-
-## Validación De API
+### Validación De API
 
 La API usa `ValidationPipe` de NestJS con clases DTO y decoradores de `class-validator` para validar bodies JSON en runtime.
 
@@ -758,7 +810,7 @@ Esto significa:
 
 La identidad del tenant debe venir desde credenciales autenticadas como `x-api-key`, no desde request bodies.
 
-## Infraestructura Local
+### Infraestructura Local
 
 El proyecto usa Docker Compose para servicios locales de infraestructura:
 
@@ -811,16 +863,16 @@ OPENAI_EMBEDDING_MODEL=text-embedding-3-small
 GEMINI_API_KEY=
 ```
 
-## Decisión De Storage
+### Decisión De Storage
 
 El storage local de documentos usa MinIO porque entrega una API compatible con S3 para desarrollo. La aplicación debe mantener el acceso a storage detrás de un límite provider/adapter en lugar de acoplar lógica de negocio directamente a MinIO.
 
-Dirección planificada de storage:
+Dirección de diseño:
 
 ```txt
 Desarrollo local: MinIO
-Ruta cloud compatible principal: storage compatible con S3, como AWS S3 o Cloudflare R2
-Opción Azure futura: Azure Blob Storage mediante un adapter separado si cambian los requisitos de despliegue
+Acceso desde la API: adapter compatible con S3
+Regla de arquitectura: la lógica de negocio no debe depender directamente del proveedor de storage
 ```
 
 Los servicios relacionados con storage deben usar nombres neutrales como `StorageService`, `ObjectStorageService` o `S3StorageAdapter`, no lógica de dominio atada directamente a MinIO.
@@ -835,6 +887,8 @@ apps/api/src/storage/storage.module.ts
 ```
 
 La API usa `@aws-sdk/client-s3` para comunicarse con storage compatible con S3. En desarrollo local, esto apunta a MinIO mediante las variables de entorno `S3_*`.
+
+Las decisiones de despliegue se describen de forma separada en la sección `Versión Cloud Del MVP`.
 
 Los services de aplicación deben depender del token provider `OBJECT_STORAGE` y del contrato `ObjectStoragePort`, no directamente de `S3StorageAdapter`.
 
@@ -930,7 +984,7 @@ Esta dimensión está alineada con el modelo de embeddings planificado de OpenAI
 OPENAI_EMBEDDING_MODEL=text-embedding-3-small
 ```
 
-Cuando cambia la dimensión de embeddings, los chunk embeddings existentes deben regenerarse. Los datos de desarrollo creados con embeddings locales previos de 8 dimensiones se trataron como datos de prueba desechables y no deben mezclarse con embeddings de 1536 dimensiones.
+La dimensión configurada en `EMBEDDING_DIMENSIONS` debe coincidir con la columna `vector(1536)` de PostgreSQL y con el provider de embeddings utilizado.
 
 Cambiar `EMBEDDING_PROVIDER` cambia cómo se generan futuros embeddings. Los documentos existentes deben reingestarse al cambiar de embeddings locales a embeddings OpenAI para que todos los vectores almacenados sean generados por la misma combinación provider/modelo/dimensión.
 
@@ -1005,13 +1059,21 @@ MIN_RETRIEVAL_SIMILARITY=
 
 Cuando esta variable está vacía, no se aplica threshold de similarity. Cuando está configurada, los chunks con `similarity < MIN_RETRIEVAL_SIMILARITY` se descartan antes de devolver la respuesta al caller o antes de ser usados por `/api/ask`.
 
-Este threshold ayuda a reducir fuentes irrelevantes, tokens de contexto innecesarios y riesgo de alucinación. El valor debe elegirse empíricamente comparando valores de similarity para preguntas relevantes e irrelevantes. Durante pruebas locales respaldadas por OpenAI, `MIN_RETRIEVAL_SIMILARITY=0.5` funcionó como threshold inicial de desarrollo, pero no debe tratarse como valor universal de producción.
+Este threshold ayuda a reducir fuentes irrelevantes, tokens de contexto innecesarios y riesgo de alucinación. El valor debe elegirse empíricamente comparando valores de similarity para preguntas relevantes e irrelevantes.
+
+Para las pruebas del MVP se dejó `MIN_RETRIEVAL_SIMILARITY` vacío. Con un volumen reducido de documentos de prueba, un threshold fijo puede descartar chunks que sí son útiles para responder. En este estado, el control principal para evitar respuestas fuera de los documentos se apoya en el prompt del LLM, que instruye al modelo a responder solo con el contexto recuperado, y en el flujo RAG, que envía al provider únicamente chunks pertenecientes al tenant autenticado.
+
+En una versión productiva, este valor debería calibrarse con un conjunto de pruebas representativo por dominio documental.
 
 Endpoint actual de ask:
 
 ```txt
 POST /api/ask
 ```
+
+Este endpoint es el contrato público principal del producto para integraciones externas. Es el endpoint que consumiría el backend, serverless function o capa server-side de una empresa cliente para consultar sus documentos internos.
+
+No requiere JWT. Requiere una API key del tenant enviada en `x-api-key`.
 
 Body de la solicitud:
 
@@ -1027,6 +1089,41 @@ El endpoint requiere:
 ```txt
 x-api-key: tai_...
 ```
+
+Respuesta esperada:
+
+```json
+{
+  "answer": "Respuesta basada en los documentos disponibles del tenant.",
+  "sources": [
+    {
+      "documentId": "...",
+      "documentName": "documento.pdf",
+      "chunkId": "..."
+    }
+  ],
+  "usage": {
+    "provider": "openai",
+    "model": "gpt-5-mini",
+    "inputTokens": 381,
+    "outputTokens": 625,
+    "totalTokens": 1006,
+    "estimatedCostUsd": null,
+    "contextTokens": 248,
+    "selectedChunks": 2,
+    "maxContextTokens": 8000,
+    "candidateLimit": 5
+  }
+}
+```
+
+Respuestas de error frecuentes:
+
+| Caso | Respuesta esperada |
+| ---- | ------------------ |
+| API key ausente o inválida | `401 Unauthorized` |
+| Body inválido o sin `question` | `400 Bad Request` |
+| No hay contexto relevante | Respuesta controlada con `sources: []` y `usage` consistente |
 
 Comportamiento actual de ask:
 
@@ -1220,7 +1317,7 @@ Ejemplo de respuesta:
 }
 ```
 
-## Base De Datos Y Prisma
+### Base De Datos Y Prisma
 
 La API usa Prisma ORM con PostgreSQL. Este proyecto usa actualmente Prisma 7, que mantiene la URL de base de datos en `apps/api/prisma.config.ts` en lugar de declararla dentro de `schema.prisma`.
 
@@ -1275,15 +1372,15 @@ npm run prisma:migrate --workspace @tenant-ai/api
 
 la base de datos local debe contener, como mínimo, estas tablas:
 
-| Tabla | Propósito |
-| --- | --- |
-| `_prisma_migrations` | Registro interno de Prisma para saber qué migraciones ya fueron aplicadas |
-| `tenants` | Empresas o clientes que usan la plataforma |
-| `api_keys` | API keys asociadas a tenants para autenticar llamadas protegidas |
-| `users` | Usuarios humanos para futuros paneles administrativos, con rol `tenant_admin` o `system_admin` |
-| `documents` | Metadata de documentos subidos por cada tenant |
-| `document_chunks` | Fragmentos de texto extraídos de documentos, junto con `tokenCount` y embeddings |
-| `usage_logs` | Registro de uso de `/api/ask`, tokens, provider, modelo y métricas de contexto |
+| Tabla                | Propósito                                                                                      |
+| -------------------- | ---------------------------------------------------------------------------------------------- |
+| `_prisma_migrations` | Registro interno de Prisma para saber qué migraciones ya fueron aplicadas                      |
+| `tenants`            | Empresas o clientes que usan la plataforma                                                     |
+| `api_keys`           | API keys asociadas a tenants para autenticar llamadas protegidas                               |
+| `users`              | Usuarios humanos de paneles administrativos, con rol `tenant_admin` o `system_admin`           |
+| `documents`          | Metadata de documentos subidos por cada tenant                                                 |
+| `document_chunks`    | Fragmentos de texto extraídos de documentos, junto con `tokenCount` y embeddings               |
+| `usage_logs`         | Registro de uso de `/api/ask`, tokens, provider, modelo y métricas de contexto                 |
 
 Relación conceptual principal:
 
@@ -1299,21 +1396,20 @@ erDiagram
 
 Esto permite validar visualmente que la migración fue aplicada correctamente. Por ejemplo, al abrir Prisma Studio o un cliente PostgreSQL, deberían verse esas tablas antes de comenzar a probar uploads, ingestion o consultas RAG.
 
-## Autenticación Con API Key
+### Autenticación Con API Key
 
-Las API keys son credenciales acotadas por tenant usadas para autenticar endpoints de negocio como carga de documentos, retrieval, chat y visibilidad de uso.
+Las API keys son credenciales acotadas por tenant usadas para autenticar el contrato público de integración de la plataforma, especialmente `/api/ask`.
 
-Crear una API key para un tenant:
-
-```txt
-POST /api/tenants/:tenantId/api-keys
-```
-
-Listar API keys de un tenant:
+En el flujo recomendado del MVP, las API keys se crean desde el panel administrativo del tenant:
 
 ```txt
-GET /api/tenants/:tenantId/api-keys
+apps/web
+  -> /register o /login
+  -> /api-keys
+  -> Crear API key
 ```
+
+El administrador del tenant copia la API key en el momento de creación y luego la configura en el backend, serverless function o entorno seguro de la aplicación cliente que consumirá Tenant AI.
 
 La API key en texto plano se devuelve solo una vez durante la creación. La base de datos almacena:
 
@@ -1330,9 +1426,31 @@ x-api-key: tai_...
 
 `ApiKeyAuthGuard` valida el header, resuelve el tenant propietario y adjunta metadata de API key autenticada al request. Los endpoints de negocio deben usar el tenant resuelto desde la API key en lugar de confiar en `tenantId` desde request bodies.
 
-## Autenticación JWT Para Paneles Administrativos
+El cliente externo no necesita conocer el `tenantId`. Desde su punto de vista, la integración mínima es una llamada HTTP:
 
-La API también incluye una base de autenticación JWT para futuros paneles web administrativos.
+```txt
+POST /api/ask
+x-api-key: tai_...
+Content-Type: application/json
+```
+
+Alcance actual del MVP:
+
+```txt
+tenant
+  -> API keys
+  -> documentos
+  -> chunks
+  -> usage logs
+```
+
+Todas las API keys activas de un mismo tenant acceden al mismo repositorio documental de ese tenant. El MVP no implementa todavía permisos documentales por API key.
+
+Como evolución futura, se podrían agregar scopes o colecciones documentales para limitar el alcance interno de cada API key. Por ejemplo, una API key podría quedar asociada solo a una colección `legal`, `rrhh` o `finanzas`, permitiendo integraciones distintas dentro del mismo tenant sin acceso a todos los documentos.
+
+### Autenticación JWT Para Paneles Administrativos
+
+La API incluye autenticación JWT para los paneles web administrativos. Este mecanismo se usa para sesiones humanas en `apps/web` y es independiente del contrato público con `x-api-key`.
 
 Este mecanismo está pensado para usuarios humanos:
 
@@ -1357,7 +1475,7 @@ POST /api/admin/tenant/documents/upload
 POST /api/admin/tenant/documents/:documentId/ingest
 ```
 
-`POST /api/auth/register` crea un tenant y un usuario `tenant_admin` inicial para ese tenant. Este flujo se usa como base MVP para habilitar acceso administrativo futuro.
+`POST /api/auth/register` crea un tenant y un usuario `tenant_admin` inicial para ese tenant. En el MVP, este flujo está expuesto mediante la pantalla `/register` del panel web.
 
 En el alcance actual, este registro es directo para simplificar la prueba del MVP. No implementa todavía aprobación de tenants, verificación de email ni validación de dominio corporativo. Para un escenario productivo B2B, este flujo debería endurecerse con una de estas alternativas:
 
@@ -1510,7 +1628,84 @@ La subida y la ingestion se mantienen separadas de forma intencional. Esto permi
 
 Cuando la ingestion termina correctamente, el documento queda en `ready`. Si ocurre un error durante el procesamiento, queda en `failed` y el administrador del tenant puede reintentar la ingestion desde el panel.
 
-## Seguimiento De Vulnerabilidades
+## Versión Cloud Del MVP
+
+La guía local anterior es suficiente para que un usuario (evaluador) levante y pruebe el proyecto en su equipo. Además, el MVP contempla una versión desplegada en cloud para demostración, pensada para mostrar el funcionamiento sin exigir instalación local durante una presentación.
+
+La versión cloud se documenta de forma separada para no mezclar el flujo de instalación local con decisiones de despliegue.
+
+Arquitectura cloud validada para el MVP:
+
+```txt
+API NestJS
+  -> Railway
+  -> ejecutada como contenedor Docker
+
+Base de datos
+  -> PostgreSQL administrado en Railway
+  -> extensión pgvector habilitada
+
+Storage de documentos
+  -> Cloudflare R2
+  -> compatible con S3
+
+Client Demo
+  -> Cloudflare Worker usando OpenNext
+  -> mantiene TENANT_AI_API_KEY del lado server-side
+
+LLM / embeddings
+  -> OpenAI API
+
+CI
+  -> GitHub Actions
+
+IaC
+  -> Terraform para recursos Cloudflare R2
+```
+
+El objetivo de esta versión cloud es demostrar:
+
+```txt
+panel administrativo del tenant
+upload e ingestion de documentos
+consulta desde client-demo
+respuesta basada en documentos del tenant
+uso de API key server-side
+persistencia en PostgreSQL + pgvector
+storage externo compatible con S3
+```
+
+Para el despliegue cloud validado del MVP, revisar:
+
+```txt
+docs/cloud-deployment.md
+```
+
+### Infrastructure As Code Cloud
+
+El MVP incluye una configuración inicial de Terraform para infraestructura Cloudflare:
+
+```txt
+infra/terraform/cloudflare
+```
+
+Alcance actual de Terraform:
+
+```txt
+Bucket Cloudflare R2 usado para almacenar documentos de tenants
+```
+
+El bucket R2 existente fue importado al estado de Terraform y validado con `terraform plan`, que devolvió que no había cambios. El estado local de Terraform, archivos locales de variables y archivos de cache del provider están intencionalmente ignorados por Git:
+
+```txt
+infra/terraform/cloudflare/.terraform/
+infra/terraform/cloudflare/terraform.tfstate
+infra/terraform/cloudflare/terraform.tfvars
+```
+
+Los archivos Terraform committeados documentan la infraestructura esperada de Cloudflare R2 sin committear secretos. Las migraciones Prisma siguen siendo administradas por Prisma y pasos de release/CI/CD, no por Terraform.
+
+### Seguimiento De Vulnerabilidades
 
 Los hallazgos de vulnerabilidades durante el desarrollo están documentados en:
 
@@ -1520,6 +1715,6 @@ docs/vulnerability-analysis.md
 
 Esto incluye el hallazgo actual de `npm audit` relacionado con tooling de desarrollo de Prisma y la razón para monitorearlo en vez de aplicar un downgrade automático incompatible.
 
-## Estado De Documentación
+### Estado De Documentación
 
 Este README se actualizará cuando cambien setup, variables de entorno, endpoints de API e instrucciones de despliegue.

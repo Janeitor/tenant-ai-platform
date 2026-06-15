@@ -30,19 +30,26 @@ export async function POST(
 
   const { documentId } = await context.params;
 
-  const response = await fetch(
-    `${tenantAiApiUrl}/admin/tenant/documents/${documentId}/ingest`,
-    {
-      method: 'POST',
-      headers: {
-        Authorization: authorization,
+  try {
+    const response = await fetch(
+      `${tenantAiApiUrl}/admin/tenant/documents/${documentId}/ingest`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: authorization,
+        },
       },
-    },
-  );
+    );
 
-  const responseBody = await response.json();
+    const responseBody = await response.json();
 
-  return NextResponse.json(responseBody, {
-    status: response.status,
-  });
+    return NextResponse.json(responseBody, {
+      status: response.status,
+    });
+  } catch {
+    return NextResponse.json(
+      { message: 'Tenant AI API is not available' },
+      { status: 503 },
+    );
+  }
 }
