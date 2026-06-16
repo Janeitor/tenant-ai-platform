@@ -5,7 +5,7 @@ node_modules/
 dist/
 build/
 .next/
-apps/client-demo/.open-next/
+.open-next/
 out/
 coverage/
 
