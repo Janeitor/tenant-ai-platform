@@ -785,10 +785,19 @@ npm run lint
 npm run test
 npm run build
 Docker image build
-npm audit --audit-level=high
+npm audit --omit=dev --audit-level=high
+npm audit
 ```
 
-El cliente Prisma se genera dentro de CI porque el output generado de Prisma está intencionalmente fuera de Git. Vulnerabilidades `high` o `critical` hacen fallar CI. Los hallazgos `moderate` conocidos están documentados en `docs/vulnerability-analysis.md`.
+El cliente Prisma se genera dentro de CI porque el output generado de Prisma está intencionalmente fuera de Git.
+
+El audit bloqueante se ejecuta sobre dependencias productivas:
+
+```txt
+npm audit --omit=dev --audit-level=high
+```
+
+Esto hace fallar CI si existen vulnerabilidades altas en dependencias que forman parte del runtime productivo. Además, el workflow ejecuta un `npm audit` completo como reporte no bloqueante para mantener visibilidad de vulnerabilidades en tooling de desarrollo o build, como Jest, Wrangler, OpenNext o Prisma CLI. Los hallazgos conocidos y las decisiones de tratamiento están documentados en `docs/vulnerability-analysis.md`.
 
 ### Validación De API
 
