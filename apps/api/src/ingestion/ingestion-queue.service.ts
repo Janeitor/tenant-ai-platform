@@ -19,7 +19,7 @@ export class IngestionQueueService {
 
   async enqueue(data: IngestDocumentJobData): Promise<void> {
     await this.queue.add(INGEST_DOCUMENT_JOB, data, {
-      jobId: `tenant-ingestion-${data.tenantId}`,
+      jobId: `document-ingestion-${data.documentId}`,
       removeOnComplete: true,
       removeOnFail: false,
       attempts: 1,
