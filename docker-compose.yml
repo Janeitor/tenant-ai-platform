@@ -16,6 +16,21 @@ services:
       timeout: 5s
       retries: 5
 
+  prisma-migrate:
+    image: node:22-alpine
+    container_name: tenant-ai-prisma-migrate
+    working_dir: /app
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/tenant_ai?schema=public
+    volumes:
+      - ./:/app
+    command: sh -c "npm ci && npm run prisma:generate --workspace @tenant-ai/api && npm run prisma:migrate:deploy --workspace @tenant-ai/api"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   redis:
     image: redis:7-alpine
     container_name: tenant-ai-redis

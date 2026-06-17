@@ -45,7 +45,7 @@ Limitaciones explícitas del MVP:
 | RLS | No se han activado políticas de Row-Level Security en PostgreSQL. | Agregar RLS como defensa adicional de aislamiento multi-tenant. |
 | Cifrado de chunks | Los chunks se almacenan en texto legible para facilitar retrieval y construcción de contexto. | Cifrado de contenido a nivel de aplicación con Key Vault/KMS. |
 | Billing | Se registran tokens y metadata de uso, pero no existe facturación real. | Cálculo de costos, planes, límites mensuales y alertas. |
-| Aprobación de tenants | El registro crea el tenant directamente para simplificar la evaluación. | Flujo de aprobación por `system_admin`, invitaciones y validación de dominio/email. |
+| Aprobación de tenants | El registro crea el tenant directamente para simplificar el flujo local del MVP. | Flujo de aprobación por `system_admin`, invitaciones y validación de dominio/email. |
 | Alcance por API key | Las API keys son tenant-scoped y acceden al repositorio documental del tenant. | Scopes o colecciones por API key dentro del mismo tenant. |
 
 ## Vista General De Arquitectura
@@ -188,7 +188,7 @@ Si Docker no está iniciado, los servicios locales de PostgreSQL, Redis y MinIO 
 
 ## Guía De Instalación Y Prueba Local
 
-Esta guía está pensada para que el profesor o evaluador pueda levantar el MVP localmente y probar el flujo completo sin tener que deducir pasos intermedios.
+Esta guía está pensada para levantar el MVP localmente y probar el flujo completo sin tener que deducir pasos intermedios.
 
 La guía sigue una única secuencia:
 
@@ -315,24 +315,33 @@ Los datos locales se mantienen en volúmenes Docker. Por eso, detener y volver a
 
 ### 5. Preparar Base De Datos Local
 
-Con Docker funcionando y PostgreSQL iniciado, ejecutar:
+Con Docker funcionando y PostgreSQL iniciado, ejecutar el servicio de migraciones incluido en `docker-compose.yml`:
 
 ```bash
-npm run prisma:migrate --workspace @tenant-ai/api
-npm run prisma:generate --workspace @tenant-ai/api
+docker compose up --build prisma-migrate
 ```
 
-Estos comandos hacen dos cosas:
+Este servicio hace dos cosas:
 
 ```txt
-prisma:migrate
-  -> crea o actualiza las tablas de la base de datos local
-
 prisma:generate
   -> genera el cliente Prisma usado por la API
+
+prisma:migrate:deploy
+  -> aplica las migraciones existentes del repositorio sobre la base local
 ```
 
-Después de ejecutar las migraciones, la base de datos debería contener tablas como `tenants`, `api_keys`, `documents`, `document_chunks` y `usage_logs`.
+Al terminar correctamente deberia verse una salida similar a:
+
+```txt
+No pending migrations to apply.
+tenant-ai-prisma-migrate exited with code 0
+```
+
+Si existen migraciones pendientes, Prisma las aplicara antes de finalizar. Despues de ejecutar las migraciones, la base de datos deberia contener tablas como `tenants`, `api_keys`, `documents`, `document_chunks` y `usage_logs`.
+
+> [!NOTE]
+> Para desarrollo de nuevas migraciones se sigue usando `npm run prisma:migrate --workspace @tenant-ai/api`. Para levantar el MVP en modo local, usar el servicio `prisma-migrate`.
 
 Para ver el detalle del modelo creado y la función de cada tabla, revisar la sección `Base De Datos Y Prisma`.
 
@@ -400,14 +409,23 @@ service: tenant-ai-api
 ```
 
 > [!NOTE]
-> Para desarrollo activo tambien se pueden ejecutar los workspaces con `npm run start:dev --workspace @tenant-ai/api`, `npm run dev --workspace @tenant-ai/web` y `npm run dev --workspace @tenant-ai/client-demo`. Para evaluacion del MVP, el flujo recomendado es Docker Compose.
+> Para desarrollo activo tambien se pueden ejecutar los workspaces con `npm run start:dev --workspace @tenant-ai/api`, `npm run dev --workspace @tenant-ai/web` y `npm run dev --workspace @tenant-ai/client-demo`. Para probar el MVP completo, el flujo recomendado es Docker Compose.
+
+> [!TIP]
+> La guia separa infraestructura, migraciones y aplicaciones para que cada etapa sea facil de entender y diagnosticar. El `docker-compose.yml` tambien esta preparado para ejecutar todo el entorno con una sola instruccion:
+>
+> ```bash
+> docker compose up --build
+> ```
+>
+> En ese caso, Docker Compose levantara los servicios definidos en el archivo. El servicio `prisma-migrate` aplicara migraciones y terminara con `exit code 0`, mientras que `api`, `admin-web`, `client-demo`, `postgres`, `redis` y `minio` quedaran disponibles.
 
 ### 8. Registrar Tenant Admin Y Crear Una API Key
 
 La configuración inicial del tenant se realiza desde el panel administrativo web incluido en `apps/web`. Esta vista representa la experiencia del administrador del cliente dentro del MVP.
 
 > [!NOTE]
-> En el MVP, el registro crea el tenant directamente para facilitar la evaluación local y demostrar el flujo completo sin intervención manual de un administrador global. En una versión productiva, la creación de tenants debería incorporar validación adicional, por ejemplo aprobación por `system_admin`, invitación controlada, verificación de email o validación de dominio corporativo.
+> En el MVP, el registro crea el tenant directamente para facilitar la prueba local y demostrar el flujo completo sin intervención manual de un administrador global. En una versión productiva, la creación de tenants debería incorporar validación adicional, por ejemplo aprobación por `system_admin`, invitación controlada, verificación de email o validación de dominio corporativo.
 
 Con las aplicaciones levantadas por Docker Compose, abrir el panel administrativo en el navegador:
 
@@ -849,6 +867,7 @@ El proyecto usa Docker Compose para servicios locales de infraestructura y aplic
 - PostgreSQL con pgvector en puerto `5432`
 - Redis en puerto `6379`
 - MinIO storage compatible con S3 en puertos `9000` y `9001`
+- Prisma migrate como servicio puntual de inicializacion de base de datos
 - API NestJS en puerto `3000`
 - Admin Web en puerto `3002`
 - Client Demo en puerto `3001`
@@ -858,6 +877,8 @@ Iniciar todo el entorno local:
 ```bash
 docker compose up --build -d
 ```
+
+El servicio `prisma-migrate` no queda ejecutandose permanentemente. Aplica migraciones existentes y finaliza con `exit code 0`.
 
 Revisar estado:
 
@@ -1674,11 +1695,11 @@ Cuando la ingestion termina correctamente, el documento queda en `ready`. Si ocu
 
 ## Versión Cloud Del MVP
 
-La guía local anterior es suficiente para que un usuario (evaluador) levante y pruebe el proyecto en su equipo. Además, el MVP contempla una versión desplegada en cloud para demostración, pensada para mostrar el funcionamiento sin exigir instalación local durante una presentación.
+La guia local anterior es el flujo principal y reproducible del MVP. La version cloud se considera una demostracion tecnica complementaria: permite mostrar que la arquitectura puede ejecutarse fuera del equipo local, pero no representa todavia una configuracion productiva final.
 
-La versión cloud se documenta de forma separada para no mezclar el flujo de instalación local con decisiones de despliegue.
+La version cloud se documenta de forma separada para no mezclar el flujo de instalacion local con decisiones de despliegue.
 
-Arquitectura cloud validada para el MVP:
+Arquitectura cloud demostrativa validada para el MVP:
 
 ```txt
 API NestJS
@@ -1687,36 +1708,46 @@ API NestJS
 
 Base de datos
   -> PostgreSQL administrado en Railway
-  -> extensión pgvector habilitada
+  -> extension pgvector habilitada
 
 Storage de documentos
   -> Cloudflare R2
   -> compatible con S3
 
-Client Demo
-  -> Cloudflare Worker usando OpenNext
-  -> mantiene TENANT_AI_API_KEY del lado server-side
-
 LLM / embeddings
   -> OpenAI API
 
+Client Demo
+  -> puede ejecutarse localmente apuntando a la API cloud
+  -> tambien fue probado como despliegue demostrativo en Cloudflare Workers/OpenNext
+
 CI
-  -> GitHub Actions
+  -> GitHub Actions para lint, tests, build, Docker build y audit basico
 
 IaC
-  -> Terraform para recursos Cloudflare R2
+  -> Terraform acotado a recursos Cloudflare R2
 ```
 
-El objetivo de esta versión cloud es demostrar:
+El objetivo de esta version cloud es demostrar:
 
 ```txt
-panel administrativo del tenant
-upload e ingestion de documentos
-consulta desde client-demo
-respuesta basada en documentos del tenant
-uso de API key server-side
-persistencia en PostgreSQL + pgvector
+API RAG funcionando fuera del entorno local
+persistencia en PostgreSQL + pgvector administrado
 storage externo compatible con S3
+embeddings y respuestas usando OpenAI
+consulta desde client-demo o desde una integracion HTTP
+uso de API key server-side
+```
+
+La industrializacion cloud completa queda como mejora futura. Aspectos pendientes para una version productiva:
+
+```txt
+publicacion de imagenes Docker en GHCR
+despliegue automatico desde GitHub Actions
+Redis administrado para ingestion asincronica en cloud
+admin-web y client-demo como contenedores o despliegues cloud estables
+Terraform ampliado para todos los recursos cloud
+observabilidad, alertas y monitoreo de costos
 ```
 
 Para el despliegue cloud validado del MVP, revisar:
@@ -1724,8 +1755,6 @@ Para el despliegue cloud validado del MVP, revisar:
 ```txt
 docs/cloud-deployment.md
 ```
-
-### Infrastructure As Code Cloud
 
 El MVP incluye una configuración inicial de Terraform para infraestructura Cloudflare:
 

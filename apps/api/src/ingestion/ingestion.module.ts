@@ -21,6 +21,7 @@ import { IngestionProcessor } from './ingestion.processor';
         connection: {
           host: configService.get<string>('REDIS_HOST', 'localhost'),
           port: Number(configService.get<string>('REDIS_PORT', '6379')),
+          password: configService.get<string>('REDIS_PASSWORD') || undefined,
         },
       }),
     }),
