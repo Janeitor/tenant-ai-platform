@@ -6,6 +6,7 @@ dist/
 build/
 .next/
 .open-next/
+.wrangler/
 out/
 coverage/
 

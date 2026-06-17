@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { type SyntheticEvent, useEffect, useState } from 'react';
+import { type SyntheticEvent, useCallback, useEffect, useState } from 'react';
 
 import { AdminShell } from '../../components/admin-shell';
 
@@ -53,32 +53,48 @@ export default function DocumentsPage() {
   const [ingestingDocumentId, setIngestingDocumentId] = useState<string | null>(
     null,
   );
+  const activeProcessingDocument =
+    documents.find((document) => document.status === 'processing') ?? null;
 
-  useEffect(() => {
-    async function loadDocuments(): Promise<void> {
-      const token = localStorage.getItem('tenant-ai-admin-token');
+  const loadDocuments = useCallback(async (): Promise<void> => {
+    const token = localStorage.getItem('tenant-ai-admin-token');
 
-      if (!token) {
-        router.push('/login');
-        return;
-      }
-
-      try {
-        const responseBody = await requestTenantDocuments(token);
-        setDocuments(responseBody);
-      } catch (loadError) {
-        setError(
-          loadError instanceof Error
-            ? loadError.message
-            : 'No fue posible cargar documentos',
-        );
-      } finally {
-        setIsLoading(false);
-      }
+    if (!token) {
+      router.push('/login');
+      return;
     }
 
-    void loadDocuments();
+    try {
+      const responseBody = await requestTenantDocuments(token);
+      setDocuments(responseBody);
+    } catch (loadError) {
+      setError(
+        loadError instanceof Error
+          ? loadError.message
+          : 'No fue posible cargar documentos',
+      );
+    } finally {
+      setIsLoading(false);
+    }
   }, [router]);
+
+  useEffect(() => {
+    if (!activeProcessingDocument) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      void loadDocuments();
+    }, 5000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [activeProcessingDocument, loadDocuments]);
+
+  useEffect(() => {
+    void loadDocuments();
+  }, [loadDocuments]);
 
   async function handleUploadDocument(
     event: SyntheticEvent<HTMLFormElement>,
@@ -121,7 +137,7 @@ export default function DocumentsPage() {
     }
 
     setSelectedFile(null);
-    setDocuments(await requestTenantDocuments(token));
+    await loadDocuments();
   }
 
   async function handleIngestDocument(documentId: string): Promise<void> {
@@ -154,7 +170,7 @@ export default function DocumentsPage() {
         return;
       }
 
-      setDocuments(await requestTenantDocuments(token));
+      await loadDocuments();
     } catch {
       setError('No fue posible conectar con la API para ingestar el documento');
     } finally {
@@ -192,6 +208,13 @@ export default function DocumentsPage() {
         </p>
 
         {error ? <p className="form-error">{error}</p> : null}
+
+        {activeProcessingDocument ? (
+          <p className="muted">
+            Hay una ingesta activa para {activeProcessingDocument.name}. Espera a que
+            finalice antes de iniciar otra.
+          </p>
+        ) : null}
 
         {isLoading ? <p className="muted">Cargando documentos...</p> : null}
 
@@ -235,7 +258,11 @@ export default function DocumentsPage() {
                         <button
                           type="button"
                           className="secondary-button"
-                          disabled={ingestingDocumentId === document.id}
+                          disabled={
+                            ingestingDocumentId === document.id ||
+                            (activeProcessingDocument !== null &&
+                              activeProcessingDocument.id !== document.id)
+                          }
                           onClick={() => {
                             void handleIngestDocument(document.id);
                           }}

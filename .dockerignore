@@ -6,7 +6,8 @@ packages/*/node_modules
 
 apps/api/dist
 apps/api/generated
-apps/client-demo/.next
+apps/*/.next
+apps/*/.open-next
 apps/client-demo/out
 
 demo-files

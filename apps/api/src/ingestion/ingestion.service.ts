@@ -57,6 +57,23 @@ export class IngestionService {
             throw new BadRequestException('Document has no stored file');
         }
 
+        const activeIngestion = await this.prisma.document.findFirst({
+            where: {
+                tenantId,
+                status: 'processing',
+            },
+            select: {
+                id: true,
+                name: true,
+            },
+        });
+
+        if (activeIngestion && activeIngestion.id !== document.id) {
+            throw new BadRequestException(
+                `Tenant already has an active ingestion process for document ${activeIngestion.name}`,
+            );
+        }
+
         await this.prisma.document.update({
             where: {
                 id: document.id,
@@ -65,6 +82,32 @@ export class IngestionService {
                 status: 'processing',
             },
         });
+
+        return {
+            documentId: document.id,
+            status: 'processing',
+            chunksCreated: 0,
+        };
+    }
+
+    async processDocument(
+        tenantId: string,
+        documentId: string,
+    ): Promise<IngestDocumentResult> {
+        const document = await this.prisma.document.findFirst({
+            where: {
+                id: documentId,
+                tenantId,
+            },
+        });
+
+        if (!document) {
+            throw new NotFoundException('Document not found');
+        }
+
+        if (!document.storageKey) {
+            throw new BadRequestException('Document has no stored file');
+        }
 
         try {
             const storedObject = await this.objectStorage.getObject({
@@ -76,6 +119,10 @@ export class IngestionService {
                 mimeType: document.mimeType,
             });
             const chunks = this.splitIntoChunks(content);
+
+            if (chunks.length === 0) {
+                throw new BadRequestException('Document has no extractable text');
+            }
 
             await this.prisma.documentChunk.deleteMany({
                 where: {
@@ -137,7 +184,7 @@ export class IngestionService {
                     status: 'failed',
                 },
             });
-            
+
             throw error;
         }
     }

@@ -43,11 +43,10 @@ describe('IngestionService', () => {
       provider: 'local',
       model: 'local-deterministic-1536',
     });
+    documentTextExtractor.extractText.mockResolvedValue(
+      'Hello world. This is a test document.',
+    );
   });
-
-  documentTextExtractor.extractText.mockResolvedValue(
-    'Hello world. This is a test document.',
-  );
 
   it('ingests a text document into embedded chunks for the authenticated tenant', async () => {
     prisma.document.findFirst.mockResolvedValue({
@@ -72,7 +71,7 @@ describe('IngestionService', () => {
     );
 
     await expect(
-      service.ingestDocument('tenant_1', 'document_1'),
+      service.processDocument('tenant_1', 'document_1')
     ).resolves.toEqual({
       documentId: 'document_1',
       status: 'ready',
@@ -116,6 +115,74 @@ describe('IngestionService', () => {
         status: 'ready',
       },
     });
+  });
+
+  it('starts document ingestion and marks the document as processing', async () => {
+    prisma.document.findFirst.mockResolvedValueOnce({
+      id: 'document_1',
+      tenantId: 'tenant_1',
+      mimeType: 'text/plain',
+      storageKey: 'tenant_1/documents/document_1.txt',
+    });
+
+    prisma.document.findFirst.mockResolvedValueOnce(null);
+
+    const service = new IngestionService(
+      prisma as never,
+      objectStorage as never,
+      embeddingsService as never,
+      documentTextExtractor as never,
+      configService as never,
+    );
+
+    await expect(
+      service.ingestDocument('tenant_1', 'document_1'),
+    ).resolves.toEqual({
+      documentId: 'document_1',
+      status: 'processing',
+      chunksCreated: 0,
+    });
+
+    expect(prisma.document.update).toHaveBeenCalledWith({
+      where: {
+        id: 'document_1',
+      },
+      data: {
+        status: 'processing',
+      },
+    });
+
+    expect(objectStorage.getObject).not.toHaveBeenCalled();
+    expect(embeddingsService.generateEmbedding).not.toHaveBeenCalled();
+  });
+
+  it('rejects ingestion when tenant already has another document processing', async () => {
+    prisma.document.findFirst.mockResolvedValueOnce({
+      id: 'document_1',
+      tenantId: 'tenant_1',
+      mimeType: 'text/plain',
+      storageKey: 'tenant_1/documents/document_1.txt',
+    });
+
+    prisma.document.findFirst.mockResolvedValueOnce({
+      id: 'document_2',
+      name: 'Other document.pdf',
+    });
+
+    const service = new IngestionService(
+      prisma as never,
+      objectStorage as never,
+      embeddingsService as never,
+      documentTextExtractor as never,
+      configService as never,
+    );
+
+    await expect(
+      service.ingestDocument('tenant_1', 'document_1'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(prisma.document.update).not.toHaveBeenCalled();
+    expect(objectStorage.getObject).not.toHaveBeenCalled();
   });
 
   it('throws not found when document does not belong to tenant', async () => {
@@ -185,7 +252,7 @@ describe('IngestionService', () => {
     );
 
     await expect(
-      service.ingestDocument('tenant_1', 'document_1'),
+      service.processDocument('tenant_1', 'document_1'),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
@@ -219,7 +286,7 @@ describe('IngestionService', () => {
     );
 
     await expect(
-      service.ingestDocument('tenant_1', 'document_1'),
+      service.processDocument('tenant_1', 'document_1'),
     ).rejects.toBeInstanceOf(BadRequestException);
 
     expect(prisma.$executeRaw).not.toHaveBeenCalled();
@@ -257,7 +324,7 @@ describe('IngestionService', () => {
     );
 
     await expect(
-      service.ingestDocument('tenant_1', 'document_1'),
+      service.processDocument('tenant_1', 'document_1'),
     ).rejects.toBeInstanceOf(BadRequestException);
 
     expect(prisma.$executeRaw).not.toHaveBeenCalled();
@@ -290,17 +357,8 @@ describe('IngestionService', () => {
     );
 
     await expect(
-      service.ingestDocument('tenant_1', 'document_1'),
+      service.processDocument('tenant_1', 'document_1'),
     ).rejects.toThrow('Text extraction failed');
-
-    expect(prisma.document.update).toHaveBeenCalledWith({
-      where: {
-        id: 'document_1',
-      },
-      data: {
-        status: 'processing',
-      },
-    });
 
     expect(prisma.document.update).toHaveBeenLastCalledWith({
       where: {

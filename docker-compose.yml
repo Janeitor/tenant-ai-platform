@@ -47,6 +47,56 @@ services:
       timeout: 5s
       retries: 5
 
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tenant-ai-api
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/tenant_ai?schema=public
+      S3_ENDPOINT: http://minio:9000
+      PORT: 3000
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  admin-web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: tenant-ai-admin-web
+    environment:
+      TENANT_AI_API_URL: http://api:3000/api
+      PORT: 3002
+    ports:
+      - "3002:3002"
+    depends_on:
+      - api
+
+  client-demo:
+    build:
+      context: .
+      dockerfile: apps/client-demo/Dockerfile
+    container_name: tenant-ai-client-demo
+    environment:
+      TENANT_AI_API_URL: http://api:3000/api
+      TENANT_AI_API_KEY: ${TENANT_AI_API_KEY:-}
+      PORT: 3001
+    ports:
+      - "3001:3001"
+    depends_on:
+      - api
+
 volumes:
   postgres_data:
   redis_data:

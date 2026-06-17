@@ -196,10 +196,10 @@ La guía sigue una única secuencia:
 1. Clonar el repositorio
 2. Instalar dependencias
 3. Crear y revisar el archivo .env
-4. Levantar servicios locales con Docker Compose
+4. Levantar infraestructura local con Docker Compose
 5. Preparar la base de datos con Prisma
 6. Ejecutar validaciones
-7. Iniciar la API
+7. Levantar aplicaciones locales con Docker Compose
 8. Registrar tenant admin y crear API key desde el panel web
 9. Subir e ingestar documentos desde el panel web
 10. Consultar desde el client demo o validar /api/ask directamente
@@ -297,10 +297,10 @@ MinIO
 
 No es necesario instalar PostgreSQL, Redis ni MinIO manualmente. El archivo `docker-compose.yml` ya define estos servicios con la configuración necesaria para el entorno local del MVP. Al ejecutar el comando siguiente, Docker descargará las imágenes necesarias, creará los contenedores y dejará disponibles los servicios requeridos por la API.
 
-Estos servicios se levantan al mismo tiempo con Docker Compose:
+En esta etapa se levantan primero los servicios de infraestructura. Esto permite ejecutar migraciones Prisma antes de iniciar la API y los frontends:
 
 ```bash
-docker compose up -d
+docker compose up -d postgres redis minio
 ```
 
 Verificar que estén arriba:
@@ -358,13 +358,29 @@ tests pasando
 build completado
 ```
 
-### 7. Iniciar La API
+### 7. Levantar Aplicaciones Locales Con Docker Compose
 
 ```bash
-npm run start:dev --workspace @tenant-ai/api
+docker compose up --build -d api admin-web client-demo
 ```
 
-Mantener esta terminal abierta. La API debería quedar disponible en:
+Este comando construye y levanta las aplicaciones ejecutables del MVP:
+
+```txt
+api
+  -> NestJS API
+  -> http://localhost:3000/api
+
+admin-web
+  -> panel administrativo del tenant
+  -> http://localhost:3002
+
+client-demo
+  -> simulacion de una web cliente que consume /api/ask
+  -> http://localhost:3001
+```
+
+La API deberia quedar disponible en:
 
 ```txt
 http://localhost:3000/api
@@ -383,6 +399,9 @@ status: ok
 service: tenant-ai-api
 ```
 
+> [!NOTE]
+> Para desarrollo activo tambien se pueden ejecutar los workspaces con `npm run start:dev --workspace @tenant-ai/api`, `npm run dev --workspace @tenant-ai/web` y `npm run dev --workspace @tenant-ai/client-demo`. Para evaluacion del MVP, el flujo recomendado es Docker Compose.
+
 ### 8. Registrar Tenant Admin Y Crear Una API Key
 
 La configuración inicial del tenant se realiza desde el panel administrativo web incluido en `apps/web`. Esta vista representa la experiencia del administrador del cliente dentro del MVP.
@@ -390,13 +409,7 @@ La configuración inicial del tenant se realiza desde el panel administrativo we
 > [!NOTE]
 > En el MVP, el registro crea el tenant directamente para facilitar la evaluación local y demostrar el flujo completo sin intervención manual de un administrador global. En una versión productiva, la creación de tenants debería incorporar validación adicional, por ejemplo aprobación por `system_admin`, invitación controlada, verificación de email o validación de dominio corporativo.
 
-Iniciar el panel en otra terminal:
-
-```bash
-npm run dev --workspace @tenant-ai/web
-```
-
-Abrir en el navegador:
+Con las aplicaciones levantadas por Docker Compose, abrir el panel administrativo en el navegador:
 
 ```txt
 http://localhost:3002
@@ -441,12 +454,16 @@ Este proceso tiene dos pasos:
    -> crea el registro del documento en la base de datos
 
 2. Ingestion
-   -> lee el archivo almacenado
+   -> marca el documento como processing
+   -> encola un job en BullMQ/Redis
+   -> responde rapidamente al panel
+   -> un worker en background lee el archivo almacenado
    -> extrae texto
    -> divide el texto en chunks
    -> calcula tokenCount
    -> genera embeddings
    -> guarda los chunks y vectores en PostgreSQL + pgvector
+   -> marca el documento como ready o failed
 ```
 
 Estados relevantes del documento:
@@ -458,6 +475,10 @@ Estados relevantes del documento:
 | `ready`      | La ingestion terminó correctamente y el documento ya puede participar en `/api/ask`                      | Queda disponible para consultas RAG          |
 | `failed`     | La ingestion falló durante extracción, chunking, embeddings o persistencia                               | Puede reintentarse la ingestion              |
 
+La ingestion del MVP es asincronica. Al presionar **Ingestar**, la API valida el tenant, marca el documento como `processing`, crea un job en Redis mediante BullMQ y responde al panel sin mantener una request HTTP larga. El worker de ingestion procesa el documento en segundo plano y actualiza el estado final.
+
+Para controlar costos y evitar procesamiento duplicado, el MVP permite una sola ingestion activa por tenant. Si existe un documento `processing`, el panel muestra el documento activo, bloquea nuevas ingestas y refresca el estado periodicamente hasta que finalice.
+
 Flujo recomendado en el panel:
 
 ```txt
@@ -466,7 +487,8 @@ Flujo recomendado en el panel:
   -> presionar Subir documento
   -> verificar que el documento aparezca con estado uploaded
   -> presionar Ingestar
-  -> esperar que el estado cambie a ready
+  -> ver el estado processing mientras el worker procesa el documento
+  -> esperar que el estado cambie automaticamente a ready
 ```
 
 La vista **Documentos** muestra nombre, tipo, tamaño, estado, fecha de creación y acciones disponibles para cada documento.
@@ -482,7 +504,10 @@ flowchart TD
   Upload["Upload documento"] --> ObjectStorage["Guardar archivo en object storage"]
   Upload --> DocumentRow["Crear registro documents"]
   DocumentRow --> Ingest["POST /api/documents/:id/ingest"]
-  Ingest --> Extract["Extraer texto"]
+  Ingest --> Processing["Documento status = processing"]
+  Processing --> Queue["Job BullMQ en Redis"]
+  Queue --> Worker["Ingestion worker"]
+  Worker --> Extract["Extraer texto"]
   Extract --> Chunk["Crear chunks"]
   Chunk --> Tokens["Calcular tokenCount"]
   Tokens --> Embeddings["Generar embeddings"]
@@ -496,15 +521,9 @@ El MVP incluye una aplicación de ejemplo llamada `client-demo`. Esta vista emul
 
 En la demo actual, la interfaz representa una intranet notarial con un asistente de consultas. El usuario escribe una pregunta en pantalla y la aplicación cliente llama a Tenant AI sin exponer la API key en el navegador.
 
-El archivo `apps/client-demo/.env.local` no viene incluido en el repositorio porque contiene configuración local y la API key del tenant. Debe crearse manualmente.
+En el flujo recomendado con Docker Compose, el `client-demo` toma su configuracion desde el archivo `.env` de la raiz del repositorio.
 
-Crear:
-
-```txt
-apps/client-demo/.env.local
-```
-
-Contenido del archivo:
+Actualizar el valor:
 
 ```env
 TENANT_AI_API_URL=http://localhost:3000/api
@@ -513,11 +532,13 @@ TENANT_AI_API_KEY=tai_your_tenant_api_key_created_in_step_8
 
 El valor `TENANT_AI_API_KEY` debe reemplazarse por la API key creada desde el panel administrativo en el punto `8. Registrar Tenant Admin Y Crear Una API Key`.
 
-Iniciar el client demo:
+Si se modifica esta variable con Docker Compose ya levantado, reiniciar el servicio:
 
 ```bash
-npm run dev --workspace @tenant-ai/client-demo
+docker compose up --build -d client-demo
 ```
+
+Para desarrollo activo fuera de Docker, se puede crear `apps/client-demo/.env.local` con las mismas variables y ejecutar `npm run dev --workspace @tenant-ai/client-demo`.
 
 Abrir:
 
@@ -703,7 +724,7 @@ Este panel representa la experiencia del administrador del tenant. En el MVP per
 - crear API keys para integrar la API RAG desde sistemas externos
 - listar API keys existentes mostrando solo metadatos seguros
 - subir documentos del tenant desde el panel
-- iniciar la ingestion de documentos desde el panel
+- iniciar ingestion asincronica de documentos desde el panel
 - listar documentos pertenecientes al tenant autenticado
 - revisar uso reciente desde una vista dedicada
 
@@ -756,8 +777,10 @@ Flujo esperado:
 
 /documents
   -> permite subir documentos text/plain o PDF
-  -> permite iniciar ingestion de documentos subidos
+  -> permite iniciar ingestion asincronica de documentos subidos
   -> permite reintentar ingestion cuando un documento queda failed
+  -> bloquea nuevas ingestas si el tenant ya tiene un documento processing
+  -> refresca automaticamente documentos processing hasta que pasen a ready o failed
   -> lista documentos del tenant autenticado
   -> muestra nombre, MIME type, tamaño, estado y fecha de creación
 
@@ -821,16 +844,19 @@ La identidad del tenant debe venir desde credenciales autenticadas como `x-api-k
 
 ### Infraestructura Local
 
-El proyecto usa Docker Compose para servicios locales de infraestructura:
+El proyecto usa Docker Compose para servicios locales de infraestructura y aplicaciones ejecutables:
 
 - PostgreSQL con pgvector en puerto `5432`
 - Redis en puerto `6379`
 - MinIO storage compatible con S3 en puertos `9000` y `9001`
+- API NestJS en puerto `3000`
+- Admin Web en puerto `3002`
+- Client Demo en puerto `3001`
 
-Iniciar servicios:
+Iniciar todo el entorno local:
 
 ```bash
-docker compose up -d
+docker compose up --build -d
 ```
 
 Revisar estado:
@@ -858,6 +884,8 @@ URLs locales por defecto:
 ```env
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/tenant_ai?schema=public
 REDIS_URL=redis://localhost:6379
+REDIS_HOST=localhost
+REDIS_PORT=6379
 S3_ENDPOINT=http://localhost:9000
 API_KEY_PEPPER=change-me-in-local-env
 EMBEDDING_PROVIDER=local
@@ -870,6 +898,8 @@ OPENAI_API_KEY=
 OPENAI_MODEL=gpt-5-mini
 OPENAI_EMBEDDING_MODEL=text-embedding-3-small
 GEMINI_API_KEY=
+TENANT_AI_API_URL=http://localhost:3000/api
+TENANT_AI_API_KEY=
 ```
 
 ### Decisión De Storage
@@ -928,7 +958,7 @@ Los archivos subidos se almacenan en el bucket compatible con S3 configurado usa
 
 La fila del documento almacena `storageKey` y usa `status = uploaded` después de una carga exitosa en object storage.
 
-La ingestion básica actualmente soporta documentos de texto plano y PDFs con texto seleccionable. El endpoint de ingestion lee el objeto almacenado mediante la abstracción de storage, extrae texto, lo divide en chunks con solapamiento, estima un conteo de tokens por chunk, los almacena en `document_chunks` y actualiza el documento a `status = ready`.
+La ingestion actualmente soporta documentos de texto plano y PDFs con texto seleccionable. El endpoint de ingestion valida el documento, marca el registro como `processing` y encola un job BullMQ en Redis. Un worker de ingestion lee el objeto almacenado mediante la abstraccion de storage, extrae texto, lo divide en chunks con solapamiento, estima un conteo de tokens por chunk, los almacena en `document_chunks` y actualiza el documento a `status = ready` o `status = failed`.
 
 El soporte PDF no incluye OCR en el MVP actual. PDFs escaneados o basados solo en imágenes requieren un provider OCR futuro.
 
@@ -938,10 +968,15 @@ Comportamiento actual de ingestion:
 POST /api/documents/:documentId/ingest
   -> requiere x-api-key
   -> filtra el documento por tenantId autenticado
+  -> rechaza una nueva ingestion si el tenant ya tiene un documento processing
   -> soporta text/plain y application/pdf con texto seleccionable
+  -> marca el documento como processing
+  -> encola un job BullMQ/Redis
+  -> responde rapido al cliente
+  -> el worker procesa el job en background
   -> crea document_chunks
   -> almacena tokenCount usando Math.ceil(content.length / 4)
-  -> marca el documento como ready
+  -> marca el documento como ready o failed
 ```
 
 Comportamiento actual de embeddings:

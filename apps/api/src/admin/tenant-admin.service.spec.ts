@@ -3,6 +3,11 @@ import { UnauthorizedException } from '@nestjs/common';
 import { TenantAdminService } from './tenant-admin.service';
 
 describe('TenantAdminService', () => {
+
+  let ingestionQueueService: {
+    enqueue: jest.Mock;
+  };
+
   const tenant = {
     id: 'tenant_1',
     name: 'Demo Company',
@@ -61,6 +66,10 @@ describe('TenantAdminService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
 
+    ingestionQueueService = {
+      enqueue: jest.fn(),
+    };
+
     prisma.tenant.findUniqueOrThrow.mockResolvedValue(tenant);
     prisma.document.count.mockResolvedValue(3);
     prisma.documentChunk.count.mockResolvedValue(12);
@@ -106,8 +115,8 @@ describe('TenantAdminService', () => {
     });
     ingestionService.ingestDocument.mockResolvedValue({
       documentId: 'document_1',
-      status: 'ready',
-      chunksCreated: 3,
+      status: 'processing',
+      chunksCreated: 0,
     });
 
     service = new TenantAdminService(
@@ -115,6 +124,7 @@ describe('TenantAdminService', () => {
       apiKeysService as never,
       documentsService as never,
       ingestionService as never,
+      ingestionQueueService as never,
     );
   });
 
@@ -228,7 +238,7 @@ describe('TenantAdminService', () => {
       UnauthorizedException,
     );
   });
-    it('lists API keys for the authenticated tenant admin tenant', async () => {
+  it('lists API keys for the authenticated tenant admin tenant', async () => {
     await expect(service.listApiKeys('tenant_1')).resolves.toEqual([
       {
         id: 'api_key_1',
@@ -300,14 +310,18 @@ describe('TenantAdminService', () => {
       service.ingestDocument('tenant_1', 'document_1'),
     ).resolves.toEqual({
       documentId: 'document_1',
-      status: 'ready',
-      chunksCreated: 3,
+      status: 'processing',
+      chunksCreated: 0,
     });
 
     expect(ingestionService.ingestDocument).toHaveBeenCalledWith(
       'tenant_1',
       'document_1',
     );
+    expect(ingestionQueueService.enqueue).toHaveBeenCalledWith({
+      tenantId: 'tenant_1',
+      documentId: 'document_1',
+    });
   });
 
   it('rejects document ingestion when tenant admin has no tenant assignment', async () => {

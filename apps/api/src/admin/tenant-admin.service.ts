@@ -8,6 +8,7 @@ import {
   type UploadDocumentInput,
 } from '../documents/documents.service';
 import { IngestionService } from '../ingestion/ingestion.service';
+import { IngestionQueueService } from '../ingestion/ingestion-queue.service';
 
 export interface TenantAdminSummary {
   tenant: {
@@ -61,6 +62,7 @@ export class TenantAdminService {
     private readonly apiKeysService: ApiKeysService,
     private readonly documentsService: DocumentsService,
     private readonly ingestionService: IngestionService,
+    private readonly ingestionQueueService: IngestionQueueService,
   ) { }
 
   async getSummary(tenantId: string | null): Promise<TenantAdminSummary> {
@@ -205,11 +207,22 @@ export class TenantAdminService {
   async ingestDocument(
     tenantId: string | null,
     documentId: string,
-  ): ReturnType<IngestionService['ingestDocument']> {
+  ): Promise<{
+    documentId: string;
+    status: string;
+    chunksCreated: number;
+  }> {
     if (!tenantId) {
       throw new UnauthorizedException('Tenant admin user is not assigned to a tenant');
     }
 
-    return this.ingestionService.ingestDocument(tenantId, documentId);
+    const result = await this.ingestionService.ingestDocument(tenantId, documentId);
+
+    await this.ingestionQueueService.enqueue({
+      tenantId,
+      documentId,
+    });
+
+    return result;
   }
 }
