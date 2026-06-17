@@ -6,20 +6,33 @@ import {
   IngestionService,
   type IngestDocumentResult,
 } from './ingestion.service';
+import { IngestionQueueService } from './ingestion-queue.service';
 
 @Controller('documents/:documentId/ingest')
 @UseGuards(ApiKeyAuthGuard)
 export class IngestionController {
-  constructor(private readonly ingestionService: IngestionService) {}
+  constructor(
+    private readonly ingestionService: IngestionService,
+    private readonly ingestionQueueService: IngestionQueueService,
+  ) { }
 
   @Post()
-  ingestDocument(
+  async ingestDocument(
     @Req() request: ApiKeyAuthenticatedRequest,
     @Param('documentId') documentId: string,
   ): Promise<IngestDocumentResult> {
-    return this.ingestionService.ingestDocument(
-      request.apiKey.tenantId,
+    const tenantId = request.apiKey.tenantId;
+
+    const result = await this.ingestionService.ingestDocument(
+      tenantId,
       documentId,
     );
+
+    await this.ingestionQueueService.enqueue({
+      tenantId,
+      documentId,
+    });
+
+    return result;
   }
 }
