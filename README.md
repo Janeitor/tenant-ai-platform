@@ -8,6 +8,13 @@
 
 Plataforma de IA empresarial multi-tenant que expone una API RAG para que las empresas puedan consultar documentos internos sin administrar infraestructura de IA.
 
+## Material De Presentacion
+
+Este repositorio incluye material complementario para revisar el MVP:
+
+- Presentacion: [Slides MBS TenantAI Platform.pptx](docs/Slides%20MBS%20TenantAI%20Platform.pptx)
+- Video demostrativo: [ver en Google Drive](https://drive.google.com/file/d/1XSbSQYVpZrtJczEt2NgjDdC4ByMMRpwl/view?usp=drive_link)
+
 ## Objetivo Del Producto
 
 Construir una plataforma orientada a producción con:
@@ -1140,6 +1147,14 @@ Este endpoint es el contrato público principal del producto para integraciones 
 
 No requiere JWT. Requiere una API key del tenant enviada en `x-api-key`.
 
+El contrato público de este endpoint también está documentado en formato OpenAPI:
+
+```txt
+docs/openapi/tenant-ai-public-api.yaml
+```
+
+Este archivo puede importarse directamente en Postman, Insomnia, Swagger Editor o Swagger UI para probar la integración sin documentar ni exponer endpoints administrativos.
+
 Body de la solicitud:
 
 ```json
@@ -1755,6 +1770,36 @@ Para el despliegue cloud validado del MVP, revisar:
 ```txt
 docs/cloud-deployment.md
 ```
+
+Para probar la versión cloud como usuario externo, el orden recomendado es:
+
+```txt
+1. Entrar al admin-web cloud: https://admin-web-production-6bfb.up.railway.app/login
+2. Registrar un tenant admin con los datos solicitados por el formulario. En el MVP, este registro crea el tenant directamente y no incluye todavía aprobación manual, validación de dominio ni verificación de email.
+3. Iniciar sesión en el panel administrativo
+4. Subir uno o más documentos del tenant
+5. Ejecutar la ingestion y esperar que el documento quede en ready
+6. Crear una API key desde la vista API keys
+7. Usar el client-demo cloud para consultar los documentos
+8. Opcionalmente, importar `docs/openapi/tenant-ai-public-api.yaml` en Postman, Insomnia, Swagger Editor o Swagger UI para probar directamente `POST /api/ask`
+```
+
+El contrato OpenAPI no reemplaza la configuración inicial del tenant. Para que `/api/ask` responda con información útil, primero debe existir:
+
+```txt
+tenant creado
+API key activa
+documento subido
+documento ingestado con estado ready
+```
+
+Para probar el contrato público cloud desde herramientas HTTP, importar:
+
+```txt
+docs/openapi/tenant-ai-public-api.yaml
+```
+
+El archivo documenta solo `POST /api/ask`, usando la URL cloud demo como server disponible y `x-api-key` como mecanismo de autenticación.
 
 El MVP incluye una configuración inicial de Terraform para infraestructura Cloudflare:
 

@@ -1,0 +1,241 @@
+openapi: 3.1.0
+info:
+  title: Tenant AI Public API
+  version: 0.1.0
+  description: |
+    Contrato publico de integracion para Tenant AI.
+
+    Esta especificacion documenta el endpoint publico de consulta RAG:
+    `POST /api/ask`.
+servers:
+  - url: https://tenant-ai-platform-production.up.railway.app/api
+    description: API cloud demo
+  - url: http://localhost:3000/api
+    description: API local de desarrollo
+security:
+  - ApiKeyAuth: []
+paths:
+  /ask:
+    post:
+      summary: Realizar una pregunta usando documentos del tenant
+      description: |
+        Envia una pregunta de usuario a la API RAG.
+
+        El tenant se resuelve desde el header `x-api-key`. Los clientes no deben
+        enviar `tenantId` en el body del request.
+      operationId: askTenantDocuments
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: x-api-key
+          in: header
+          required: true
+          description: API key del tenant. Reemplazar el valor de ejemplo por una API key real generada desde el panel administrativo.
+          schema:
+            type: string
+          example: tai_REEMPLAZAR_CON_API_KEY_DEL_TENANT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AskRequest'
+            example:
+              question: Que documentos necesito para firmar una compraventa?
+              limit: 5
+            examples:
+              askExample:
+                summary: Pregunta sobre documentos del tenant
+                value:
+                  question: Que documentos necesito para firmar una compraventa?
+                  limit: 5
+      responses:
+        '200':
+          description: Respuesta generada desde el contexto recuperado del tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AskResponse'
+              examples:
+                answerExample:
+                  summary: Respuesta exitosa
+                  value:
+                    answer: Para firmar una compraventa, los documentos disponibles indican que se requiere identificar a las partes, revisar antecedentes del inmueble y preparar la escritura correspondiente.
+                    sources:
+                      - documentId: cmqi123document
+                        documentName: Ley-20939_02-DIC-2009.pdf
+                        chunkId: cmqi123chunk
+                    usage:
+                      provider: openai
+                      model: gpt-5-mini
+                      inputTokens: 420
+                      outputTokens: 180
+                      totalTokens: 600
+                      estimatedCostUsd: null
+                      contextTokens: 320
+                      selectedChunks: 3
+                      maxContextTokens: 8000
+                      candidateLimit: 5
+        '400':
+          description: Body del request invalido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalidBody:
+                  value:
+                    message:
+                      - question no debe estar vacia
+                      - question debe ser un string
+                    error: Bad Request
+                    statusCode: 400
+        '401':
+          description: API key ausente o invalida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                missingApiKey:
+                  value:
+                    message: Missing API key
+                    error: Unauthorized
+                    statusCode: 401
+        '503':
+          description: Provider externo temporalmente no disponible
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                providerFailure:
+                  value:
+                    message: Embedding provider request failed
+                    error: Service Unavailable
+                    statusCode: 503
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+      description: API key del tenant generada desde el panel de administracion del tenant.
+  schemas:
+    AskRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - question
+      properties:
+        question:
+          type: string
+          minLength: 1
+          description: Pregunta del usuario que se respondera usando el corpus documental del tenant.
+          examples:
+            - Que documentos necesito para firmar una compraventa?
+        limit:
+          type: integer
+          minimum: 1
+          description: Numero maximo opcional de chunks candidatos solicitados por el cliente. La API puede limitar este valor mediante configuracion server-side.
+          examples:
+            - 5
+    AskResponse:
+      type: object
+      required:
+        - answer
+        - sources
+        - usage
+      properties:
+        answer:
+          type: string
+          description: Respuesta generada desde el contexto recuperado del tenant.
+        sources:
+          type: array
+          description: Chunks fuente usados para producir la respuesta.
+          items:
+            $ref: '#/components/schemas/AskSource'
+        usage:
+          $ref: '#/components/schemas/AskUsage'
+    AskSource:
+      type: object
+      required:
+        - documentId
+        - documentName
+        - chunkId
+      properties:
+        documentId:
+          type: string
+        documentName:
+          type: string
+        chunkId:
+          type: string
+    AskUsage:
+      type: object
+      required:
+        - provider
+        - model
+        - inputTokens
+        - outputTokens
+        - totalTokens
+        - estimatedCostUsd
+        - contextTokens
+        - selectedChunks
+        - maxContextTokens
+        - candidateLimit
+      properties:
+        provider:
+          type: string
+          examples:
+            - openai
+            - local
+        model:
+          type: string
+          examples:
+            - gpt-5-mini
+            - retrieval-only
+        inputTokens:
+          type:
+            - integer
+            - 'null'
+        outputTokens:
+          type:
+            - integer
+            - 'null'
+        totalTokens:
+          type:
+            - integer
+            - 'null'
+        estimatedCostUsd:
+          type:
+            - number
+            - 'null'
+        contextTokens:
+          type:
+            - integer
+            - 'null'
+        selectedChunks:
+          type:
+            - integer
+            - 'null'
+        maxContextTokens:
+          type:
+            - integer
+            - 'null'
+        candidateLimit:
+          type:
+            - integer
+            - 'null'
+    ErrorResponse:
+      type: object
+      properties:
+        message:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+        error:
+          type: string
+        statusCode:
+          type: integer
